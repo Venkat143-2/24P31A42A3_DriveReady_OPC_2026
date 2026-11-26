@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 4 · Tools, structured output and Google Sheets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: study notes — sticky lesson index on the left, one readable column; coloured stripes mark analogies (amber), design lens (teal) and warnings (red). */
+:root{
+  --bg:#F5F7F8;
+  --paper:#FFFFFF;
+  --ink:#16222B;
+  --muted:#5B6B76;
+  --line:#D7DFE3;
+  --accent:#0E7C6B;          /* teal: design lens, key path */
+  --accent-soft:#E2F3EF;
+  --warm:#B86A00;            /* amber: analogies */
+  --warm-soft:#FBF0DF;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --code-bg:#0F1A21;
+  --code-ink:#DCE6EA;
+  --panel:#F0F4F5;
+  --font-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151A; --paper:#141E25; --ink:#E4ECEF; --muted:#9AAAB3; --line:#2A3943;
+    --accent:#4CC5AE; --accent-soft:#16332E; --warm:#E7A64A; --warm-soft:#33270F;
+    --danger:#F08B83; --danger-soft:#3A1C1A; --code-bg:#0A1116; --code-ink:#DCE6EA; --panel:#1B2830;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151A; --paper:#141E25; --ink:#E4ECEF; --muted:#9AAAB3; --line:#2A3943;
+  --accent:#4CC5AE; --accent-soft:#16332E; --warm:#E7A64A; --warm-soft:#33270F;
+  --danger:#F08B83; --danger-soft:#3A1C1A; --code-bg:#0A1116; --code-ink:#DCE6EA; --panel:#1B2830;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.62}
+a{color:var(--accent)}
+a:focus-visible,summary:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:32px 24px 80px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;font-size:14.5px;padding-right:6px}
+nav.toc .tt{font-family:var(--font-display);font-weight:800;font-size:15px;letter-spacing:.02em;margin:0 0 10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--ink);text-decoration:none;border-left:3px solid transparent}
+nav.toc a:hover{background:var(--panel);border-left-color:var(--accent)}
+nav.toc .sub a{padding-left:24px;color:var(--muted);font-size:13.5px}
+main{min-width:0}
+header.hero{padding:8px 0 28px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.eyebrow{font-family:var(--font-mono);font-size:13px;color:var(--accent);letter-spacing:.04em;text-transform:uppercase}
+h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;line-height:1.2}
+h1{font-size:42px;font-weight:800;margin:6px 0 12px}
+h2{font-size:30px;font-weight:800;margin:56px 0 10px;padding-top:12px}
+h3{font-size:22px;font-weight:600;margin:34px 0 8px}
+h4{font-size:18px;font-weight:600;margin:22px 0 6px}
+.lede{font-size:19px;color:var(--muted);max-width:68ch;margin:0}
+p,li{max-width:70ch}
+.lessonno{display:inline-block;font-family:var(--font-mono);font-size:14px;color:var(--paper);background:var(--accent);border-radius:6px;padding:2px 9px;margin-right:10px;vertical-align:middle;position:relative;top:-3px}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:18px 0 0;padding:0;list-style:none}
+.map li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:15px}
+.map li b{font-family:var(--font-mono);color:var(--accent);margin-right:6px}
+.box{border-radius:10px;padding:14px 18px;margin:18px 0;border-left:5px solid;background:var(--paper)}
+.box > :first-child{margin-top:0}
+.box > :last-child{margin-bottom:0}
+.box .tag{display:block;font-family:var(--font-mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-bottom:4px}
+.analogy{border-color:var(--warm);background:var(--warm-soft)}
+.analogy .tag{color:var(--warm)}
+.lens{border-color:var(--accent);background:var(--accent-soft)}
+.lens .tag{color:var(--accent)}
+.warn{border-color:var(--danger);background:var(--danger-soft)}
+.warn .tag{color:var(--danger)}
+.remember{border-color:var(--ink);background:var(--paper);border-left-width:5px;box-shadow:0 1px 0 var(--line)}
+.remember ul{margin:4px 0 0;padding-left:20px}
+.yours{display:inline-block;font-family:var(--font-mono);font-size:11.5px;background:var(--warm);color:var(--paper);border-radius:4px;padding:1px 7px;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:0}
+.tablewrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:15.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-family:var(--font-display);font-weight:600;background:var(--panel);font-size:15px}
+tr:last-child td{border-bottom:0}
+td code,p code,li code,th code{font-family:var(--font-mono);font-size:.86em;background:var(--panel);padding:1px 5px;border-radius:4px;word-break:break-word}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px 18px;overflow-x:auto;font-family:var(--font-mono);font-size:14px;line-height:1.55;margin:16px 0}
+pre code{font-family:inherit;background:none;padding:0}
+.k{color:#7FC8FF}.s{color:#B5E48C}.c{color:#7C8F99;font-style:italic}.n{color:#F5B971}
+figure{margin:22px 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 16px 10px;overflow-x:auto}
+figcaption{font-size:14.5px;color:var(--muted);margin-top:8px;max-width:none}
+svg.dg{display:block;width:100%;max-width:100%;height:auto;min-width:560px;color:var(--ink)}
+svg.dg text{fill:currentColor;font-family:var(--font-body);font-size:13px}
+svg.dg .t-s{font-size:11.5px;fill:var(--muted)}
+svg.dg .t-b{font-weight:700}
+svg.dg .t-m{font-family:var(--font-mono);font-size:12px}
+svg.dg .b{fill:var(--panel);stroke:currentColor;stroke-width:1.2}
+svg.dg .ba{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.8}
+svg.dg .bw{fill:var(--warm-soft);stroke:var(--warm);stroke-width:1.5}
+svg.dg .bd{fill:var(--danger-soft);stroke:var(--danger);stroke-width:1.5}
+svg.dg .ln{stroke:currentColor;stroke-width:1.4;fill:none}
+svg.dg .lna{stroke:var(--accent);stroke-width:2;fill:none}
+svg.dg .dash{stroke:var(--muted);stroke-width:1.2;fill:none;stroke-dasharray:5 4}
+svg.dg .bar{fill:var(--accent)}
+svg.dg .bar2{fill:var(--warm)}
+svg.dg .ah{fill:currentColor}
+svg.dg .aha{fill:var(--accent)}
+details{background:var(--paper);border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:0 16px}
+summary{cursor:pointer;font-weight:700;padding:12px 0}
+details[open]{padding-bottom:12px}
+.qa dt{font-weight:700;margin-top:12px}
+.qa dd{margin:4px 0 0 0;color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.card h4{margin-top:0}
+/* ---------- interactive widgets ---------- */
+.sim{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:22px 0;overflow:hidden}
+.sim-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sim-head .ttl{font-family:var(--font-display);font-weight:600;font-size:16px}
+.sim-head .live{font-family:var(--font-mono);font-size:11.5px;color:var(--paper);background:var(--accent);border-radius:4px;padding:2px 7px;letter-spacing:.05em;text-transform:uppercase}
+.sim-body{padding:14px 16px 16px}
+.sim label{font-weight:700;font-size:14.5px}
+.sim textarea,.sim input[type=text]{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);resize:vertical}
+.sim textarea:focus,.sim input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.btn{font:inherit;font-size:14.5px;font-weight:700;border:1px solid var(--accent);background:var(--accent);color:var(--paper);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:12px 0;min-height:34px;font-family:var(--font-mono);font-size:14px}
+.chip{padding:3px 6px;border-radius:5px;white-space:pre;border:1px solid transparent}
+.chip.c0{background:#DDEFFC;color:#11344F}.chip.c1{background:#FBE3C8;color:#4A2A00}.chip.c2{background:#DDF3E4;color:#123D22}.chip.c3{background:#F3DDF3;color:#3F1440}.chip.c4{background:#E7E3FB;color:#231A55}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.stat b{display:block;font-family:var(--font-display);font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.note{font-size:13.5px;color:var(--muted);margin:8px 0 0}
+.tbar{display:grid;grid-template-columns:96px 1fr 52px;gap:8px;align-items:center;margin:5px 0;font-size:14.5px}
+.tbar .track{background:var(--panel);border-radius:4px;height:20px;overflow:hidden}
+.tbar .fill{height:100%;background:var(--accent);border-radius:4px;transition:width .35s ease}
+.tbar .pct{font-family:var(--font-mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.tbar.hit .fill{background:var(--warm)}
+input[type=range]{width:220px;accent-color:var(--accent)}
+.sentence{font-size:18px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px dashed var(--line);min-height:46px}
+.sentence .new{background:var(--warm-soft);color:var(--warm);font-weight:700;border-radius:4px;padding:0 3px}
+.status{font-size:15px;padding:8px 12px;border-radius:8px;background:var(--accent-soft);border-left:4px solid var(--accent);margin-top:10px;min-height:42px}
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.opt{font:inherit;font-size:15px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.opt.right{background:var(--accent-soft);border-color:var(--accent)}
+.opt.wrong{background:var(--danger-soft);border-color:var(--danger)}
+.toggles{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 18px;margin:8px 0}
+.toggles label{font-weight:400;display:flex;gap:8px;align-items:flex-start}
+.result{font-family:var(--font-mono);font-size:13.5px;background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin-top:8px}
+.cw{display:flex;height:46px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin:10px 0;background:var(--bg)}
+.cw div{display:flex;align-items:center;justify-content:center;font-size:12.5px;white-space:nowrap;overflow:hidden;transition:width .3s ease}
+.cw .sys{background:var(--accent-soft)}.cw .his{background:var(--panel)}.cw .doc{background:var(--warm-soft)}.cw .ans{background:var(--accent);color:var(--paper)}.cw .over{background:var(--danger);color:#fff}
+.hist{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.hist div{font-size:14px;padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
+.hist .r-system{border-left:4px solid var(--ink)}.hist .r-user{border-left:4px solid var(--accent)}.hist .r-assistant{border-left:4px solid var(--warm)}
+.hist .fresh{animation:pop .5s ease}
+@keyframes pop{from{transform:translateY(-6px);opacity:.2}to{transform:none;opacity:1}}
+/* svg highlight + flowing arrows */
+svg.dg .b,svg.dg .ba,svg.dg .bw,svg.dg .bd{transition:fill .25s ease,stroke .25s ease,stroke-width .25s ease}
+svg.dg .on{fill:var(--warm-soft)!important;stroke:var(--warm)!important;stroke-width:3!important}
+svg.dg.flow .ln,svg.dg.flow .lna{stroke-dasharray:7 5;animation:dash 1.1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-24}}
+@media (prefers-reduced-motion: reduce){
+  svg.dg.flow .ln,svg.dg.flow .lna{animation:none;stroke-dasharray:none}
+  .tbar .fill,.cw div{transition:none}
+  .hist .fresh{animation:none}
+}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
+@media (max-width: 900px){
+  .shell{grid-template-columns:1fr;gap:10px;padding:20px 16px 60px}
+  nav.toc{position:static;max-height:none;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--paper)}
+  nav.toc .sub{display:none}
+  h1{font-size:32px} h2{font-size:25px}
+  .two{grid-template-columns:1fr}
+}
+/* ---------- Day 1 tutorial additions ---------- */
+:root{--info:#1F5FA8;--info-soft:#E7F0FA}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--info:#7FB2EE;--info-soft:#15263A}}
+:root[data-theme="dark"]{--info:#7FB2EE;--info-soft:#15263A}
+.real{border-color:var(--info);background:var(--info-soft)}
+.real .tag{color:var(--info)}
+.oneline{font-size:19px;font-family:var(--font-display);font-weight:600;border-left:5px solid var(--accent);padding:4px 0 4px 14px;margin:6px 0 16px;max-width:none}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+.meta span{font-family:var(--font-mono);font-size:12.5px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted)}
+.meta b{color:var(--ink)}
+/* video player */
+.vid{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:22px 0;overflow:hidden}
+.vid-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.vid-head .ttl{font-family:var(--font-display);font-weight:600;font-size:16px}
+.vid-head .live{font-family:var(--font-mono);font-size:11.5px;color:var(--paper);background:var(--warm);border-radius:4px;padding:2px 7px;letter-spacing:.05em;text-transform:uppercase}
+.vid-stage{padding:14px 14px 4px;overflow-x:auto;position:relative}
+.vid-stage svg.dg{min-width:600px}
+.vid-cap{min-height:56px;margin:4px 14px 10px;padding:10px 14px;border-radius:8px;background:var(--bg);border:1px dashed var(--line);font-size:16.5px;max-width:none}
+.vid-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.vid-play{min-width:92px}
+.vid-prog{flex:1;min-width:140px;height:8px;background:var(--line);border-radius:4px;cursor:pointer;position:relative}
+.vid-prog div{height:100%;width:0;background:var(--warm);border-radius:4px}
+.vid-time{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.vid-bar label{font-size:14px;display:flex;gap:6px;align-items:center}
+svg.dg .ve{opacity:0;transition:opacity .55s ease,transform .9s cubic-bezier(.4,.1,.2,1)}
+svg.dg .ve.show{opacity:1}
+svg.dg .grow{transform-box:fill-box;transform-origin:0 50%;transition:transform .9s cubic-bezier(.4,.1,.2,1)}
+svg.dg .spin{transform-box:view-box;transition:transform .9s cubic-bezier(.4,.1,.2,1)}
+svg.dg .big{font-size:24px;font-family:var(--font-mono)}
+svg.dg .t-l{font-size:15px}
+svg.dg .t-red{fill:var(--danger);font-weight:700}
+svg.dg .t-ok{fill:var(--accent);font-weight:700}
+/* quiz */
+.quiz{margin:26px 0 8px;border:1px solid var(--line);border-radius:12px;background:var(--paper);overflow:hidden}
+.quiz-head{padding:10px 16px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-family:var(--font-display);font-weight:600;display:flex;justify-content:space-between;gap:10px}
+.quiz-head span{font-family:var(--font-mono);font-size:12.5px;color:var(--accent);font-weight:600}
+.mcq{padding:14px 16px;border-bottom:1px solid var(--line)}
+.mcq:last-child{border-bottom:0}
+.mcq .q{font-weight:700;margin:0 0 8px;max-width:none}
+.mcq .choices{display:grid;gap:6px}
+.mcq .choices button{font:inherit;font-size:15.5px;text-align:left;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+.mcq .choices button b{font-family:var(--font-mono);color:var(--muted);min-width:1.2em}
+.mcq .choices button:hover:not(:disabled){border-color:var(--accent)}
+.mcq .choices button.right{background:var(--accent-soft);border-color:var(--accent)}
+.mcq .choices button.wrong{background:var(--danger-soft);border-color:var(--danger)}
+.mcq .choices button:disabled{cursor:default}
+.mcq .why{display:none;margin-top:10px;font-size:15px;padding:8px 12px;border-radius:8px;background:var(--panel);max-width:none}
+.mcq.done .why{display:block}
+.mcq .retry{display:none;margin-top:8px}
+.mcq.done .retry{display:inline-block}
+.score{position:sticky;bottom:12px;margin-top:14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.score b{font-family:var(--font-display);font-size:22px;color:var(--accent);font-variant-numeric:tabular-nums}
+.score .track{height:6px;background:var(--panel);border-radius:3px;margin-top:6px;overflow:hidden}
+.score .track div{height:100%;width:0;background:var(--accent);transition:width .4s ease}
+.agenda{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:18px 0 0;padding:0;list-style:none;counter-reset:ag}
+.agenda li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:15px}
+.agenda li a{text-decoration:none;color:var(--ink)}
+.agenda li b{font-family:var(--font-mono);color:var(--accent);margin-right:6px}
+.agenda li small{display:block;color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion: reduce){svg.dg .ve,svg.dg .grow,svg.dg .spin{transition:opacity .2s linear}}
+.bar-wrap{height:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:10px 0}
+.bar-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease,background .3s ease}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="toc" aria-label="Topics">
+  <p class="tt">Day 4 tutorial</p>
+  <ol>
+    <li><a href="#start">Today at a glance</a></li>
+    <li><a href="#t1">1 · Why agents need tools</a></li>
+    <li><a href="#t2">2 · How function calling works</a></li>
+    <li><a href="#t3">3 · Writing good tools</a></li>
+    <li><a href="#t4">4 · The agent with tools</a></li>
+    <li><a href="#t5">5 · Rate limits and tool errors</a></li>
+    <li><a href="#t6">6 · Structured output with Pydantic</a></li>
+    <li><a href="#t7">7 · Saving to Google Sheets</a></li>
+    <li><a href="#t8">8 · Putting it together</a></li>
+    <li><a href="#build">Today's build + your 30%</a></li>
+    <li><a href="#wrap">Summary</a></li>
+  </ol>
+  <div class="score" id="score" aria-live="polite">Quiz score<br><b id="sc-n">0</b> / <span id="sc-t">16</span> correct<div class="track"><div id="sc-bar"></div></div></div>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Ai Agents Workshop · Level 2 Single agent · Day 4 (session 2 of 3)</div>
+  <h1>Tools, structured output and Google Sheets</h1>
+  <p class="lede">Yesterday the assistant could only talk. Today it gets <strong>hands</strong>: Python functions it can call by itself to check prices and opening hours, and to save orders. You also learn to turn a messy chat into a clean, checked record, and to write it into a real Google Sheet.</p>
+  <div class="meta"><span><b>2 hours</b> · 1 session</span><span>Trainer <b>70%</b> · Students <b>30%</b></span><span>Runs in <b>Google Colab</b></span><span>Case study: <b>Sweet Crumbs Home Bakery</b></span></div>
+</header>
+
+<section id="start">
+  <h2>Today at a glance</h2>
+  <p>Topics 1–5 are about <strong>tools</strong>: what they are, how the model uses them, and what can go wrong. Topics 6–8 are about <strong>saving clean data</strong>: Pydantic, Google Sheets and a <code>log_order</code> tool that ties it all together.</p>
+  <ol class="agenda">
+    <li><a href="#t1"><b>01</b>Why agents need tools<small>Live facts and real actions · 10 min</small></a></li>
+    <li><a href="#t2"><b>02</b>How function calling works<small>The model asks, your code runs · 15 min</small></a></li>
+    <li><a href="#t3"><b>03</b>Writing good tools<small>@tool, names, docstrings · 15 min</small></a></li>
+    <li><a href="#t4"><b>04</b>The agent with tools<small>create_agent and the trace · 15 min</small></a></li>
+    <li><a href="#t5"><b>05</b>Rate limits and tool errors<small>429, retries, polite failures · 10 min</small></a></li>
+    <li><a href="#t6"><b>06</b>Structured output with Pydantic<small>A form with checks · 15 min</small></a></li>
+    <li><a href="#t7"><b>07</b>Saving to Google Sheets<small>gspread in Colab · 10 min</small></a></li>
+    <li><a href="#t8"><b>08</b>Putting it together<small>Chat → order → sheet row · 10 min</small></a></li>
+  </ol>
+  <div class="box real"><span class="tag">Where we are in the case study</span>
+    <p>Day 3: the Sweet Crumbs assistant could answer from the facts in its prompt. Today it can <strong>look up</strong> prices and hours with tools and <strong>save</strong> orders into the owner's Orders sheet. That covers the first half of the owner's wish list: no more copying orders from chat into a notebook.</p>
+  </div>
+</section>
+
+<!-- ============ T1 ============ -->
+<section id="t1">
+  <h2><span class="lessonno">01</span>Why agents need tools</h2>
+  <p class="oneline">A model only knows what it learned and what is in the prompt. Tools let it fetch live facts and take real actions.</p>
+  <p>An LLM can't check today's stock, can't read your database, can't do reliable maths on big numbers and can't save anything. It only produces text. A <strong>tool</strong> is a normal Python function you allow it to use. The model decides <em>when</em> a tool is needed; your function does the actual work, exactly and safely.</p>
+  <div class="sim" id="sim-nt">
+    <div class="sim-head"><span class="ttl">Model alone, or does it need a tool?</span><span class="live">Live</span></div>
+    <div class="sim-body"><div id="nt-list"></div><div class="status" id="nt-st">Choose for each question.</div></div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>When an assistant tells you the live status of your train or your parcel, it isn't remembering it; it called a tool that asked the railway or courier system. For Sweet Crumbs, prices can change and orders must be saved, so both need tools.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>smart student in an exam hall</strong> can explain anything from memory, but can't tell you today's gold price or update the class register. Give them a <strong>phone and the register</strong> (tools) and they can.</p>
+  </div>
+  <div class="vid" data-vid="v1">
+    <div class="vid-head"><span class="ttl">Watch: from guessing to knowing</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 256" role="img" aria-label="Animation: without tools the model guesses a price; with get_price and log_order tools it gives the real price and saves the order."><defs><marker id="mv1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v1-q" class="ve" ><rect x="20" y="90" width="200" height="60" rx="8" class="b"/><text x="120.0" y="116.0" text-anchor="middle" class="t-b">"Plum cake price</text><text x="120.0" y="134.0" text-anchor="middle" class="t-s">today? Book 2."</text></g><g id="v1-a1" class="ve"><line class="ln" x1="220" y1="120" x2="278" y2="120" marker-end="url(#mv1)"/></g><g id="v1-m" class="ve" ><rect x="280" y="80" width="200" height="80" rx="8" class="ba"/><text x="380.0" y="116.0" text-anchor="middle" class="t-b">Model alone</text><text x="380.0" y="134.0" text-anchor="middle" class="t-s">knows text, not your data</text></g><g id="v1-guess" class="ve"><line class="ln" x1="480" y1="105" x2="528" y2="60" marker-end="url(#mv1)"/><rect x="530" y="30" width="210" height="50" rx="8" class="bd"/><text x="635" y="52" text-anchor="middle" class="t-b">"Around Rs 800?"</text><text x="635" y="70" text-anchor="middle" class="t-s">guess · nothing saved</text></g><g id="v1-tools" class="ve"><rect x="280" y="190" width="200" height="50" rx="8" class="bw"/><text x="380" y="212" text-anchor="middle" class="t-b">Tools</text><text x="380" y="230" text-anchor="middle" class="t-s">get_price · log_order</text><line class="ln" x1="380" y1="188" x2="380" y2="162" marker-end="url(#mv1)" marker-start="url(#mv1)"/></g><g id="v1-right" class="ve"><line class="ln" x1="480" y1="140" x2="528" y2="170" marker-end="url(#mv1)"/><rect x="530" y="150" width="210" height="50" rx="8" class="ba"/><text x="635" y="172" text-anchor="middle" class="t-b">"Rs 1,000. Booked!"</text><text x="635" y="190" text-anchor="middle" class="t-s">real price · row saved</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Tools = fresh facts (prices, hours, stock) + actions (save, send) + exact work (maths).</li><li>The model chooses; the tool does the work.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="c"><p class="q">1. Which question <strong>needs</strong> a tool?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>"Write a birthday wish for my mother"</button>
+      <button type="button" data-k="b"><b>B</b>"What is a plum cake?"</button>
+      <button type="button" data-k="c"><b>C</b>"How many cupcakes are left in stock today?"</button>
+      <button type="button" data-k="d"><b>D</b>"Translate 'thank you' into Telugu"</button></div>
+      <p class="why">Today's stock is live data the model can't know. The others are text the model can write itself.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="a"><p class="q">2. Why use a <code>get_price</code> tool instead of putting prices in the prompt?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Prices can change and the maths must be exact; the tool reads the current menu and calculates</button>
+      <button type="button" data-k="b"><b>B</b>Prompts can't contain numbers</button>
+      <button type="button" data-k="c"><b>C</b>Tools are free and prompts are not</button>
+      <button type="button" data-k="d"><b>D</b>The model can't read prices</button></div>
+      <p class="why">A tool always uses the latest menu and Python's exact arithmetic. Both matter when money is involved.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T2 ============ -->
+<section id="t2">
+  <h2><span class="lessonno">02</span>How function calling works</h2>
+  <p class="oneline">The model never runs your code. It replies with a request, "call get_price with these arguments", and your program runs it and sends the result back.</p>
+  <p>Along with the messages, you send a short <strong>description of each tool</strong>: its name, what it does, and its inputs. When the model needs one, its reply contains a <strong>tool call</strong> instead of text. Your code runs the function, adds the result to the messages as a <strong>tool</strong> message, and calls the model again. This is the agent loop from Day 3, made real.</p>
+  <div class="sim" id="sim-fc">
+    <div class="sim-head"><span class="ttl">Watch the messages list during one tool call</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="two">
+        <div><p class="note" style="margin:0 0 2px">What the model is told about the tool</p><div class="result" id="fc-schema" style="margin-top:0"></div></div>
+        <div><p class="note" style="margin:0 0 2px">Messages so far</p><div class="hist" id="fc-log"></div></div>
+      </div>
+      <div class="row"><button class="btn" type="button" id="fc-next">Next step</button><button class="btn ghost" type="button" id="fc-reset">Reset</button></div>
+      <div class="status" id="fc-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>All major model providers support this same pattern (often called <strong>function calling</strong> or <strong>tool use</strong>). It's how assistants book meetings, search the web or query a database: the model writes the request, the company's own code carries it out.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>waiter and the kitchen</strong>. The waiter (model) doesn't cook. He writes an order ticket ("2 dosa, less oil"), the kitchen (your code) cooks it, and the waiter brings the dish back and talks to the customer.</p>
+  </div>
+  <div class="vid" data-vid="v2">
+    <div class="vid-head"><span class="ttl">Watch: the waiter and the kitchen</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 262" role="img" aria-label="Animation: the model writes a tool-call ticket, the kitchen (your code) runs it and sends back a result, and the model answers the customer."><defs><marker id="mv2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v2-cust" class="ve" ><rect x="20" y="40" width="150" height="56" rx="8" class="b"/><text x="95.0" y="64.0" text-anchor="middle" class="t-b">Customer</text><text x="95.0" y="82.0" text-anchor="middle" class="t-s">"3 plum cakes?"</text></g><g id="v2-wait" class="ve" ><rect x="300" y="40" width="160" height="56" rx="8" class="ba"/><text x="380.0" y="64.0" text-anchor="middle" class="t-b">Model</text><text x="380.0" y="82.0" text-anchor="middle" class="t-s">= the waiter</text></g><g id="v2-kit" class="ve" ><rect x="590" y="40" width="150" height="56" rx="8" class="bw"/><text x="665.0" y="64.0" text-anchor="middle" class="t-b">Your code</text><text x="665.0" y="82.0" text-anchor="middle" class="t-s">= the kitchen</text></g><g id="v2-a1" class="ve"><line class="ln" x1="170" y1="68" x2="298" y2="68" marker-end="url(#mv2)"/></g><g id="v2-ticket" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="300" y="130" width="180" height="46" rx="6" class="bw"/><text x="390" y="150" text-anchor="middle" class="t-b">Ticket (tool call)</text><text x="390" y="167" text-anchor="middle" class="t-m">get_price("plum cake", 3)</text></g><g id="v2-dish" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="560" y="200" width="180" height="46" rx="6" class="ba"/><text x="650" y="220" text-anchor="middle" class="t-b">Result (tool msg)</text><text x="650" y="237" text-anchor="middle" class="t-m">"Rs 1500"</text></g><g id="v2-ans" class="ve"><line class="ln" x1="300" y1="80" x2="172" y2="80" marker-end="url(#mv2)"/><text x="236" y="112" text-anchor="middle" class="t-s">"3 plum cakes are Rs 1,500"</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>You send tool descriptions; the model replies with a tool call; your code runs it; the result goes back as a <code>tool</code> message.</li><li>The model can ask for a tool, but only your code can run it, so you stay in control.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="b"><p class="q">1. When the model decides it needs <code>get_price</code>, what does it send back?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>The price, which it calculated itself</button>
+      <button type="button" data-k="b"><b>B</b>A tool call: the tool's name and the arguments, like item="plum cake", qty=3</button>
+      <button type="button" data-k="c"><b>C</b>The Python code of get_price</button>
+      <button type="button" data-k="d"><b>D</b>Nothing; the tool runs automatically on the server</button></div>
+      <p class="why">The model only writes the request. Your program reads it and runs the function.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="d"><p class="q">2. After your code runs the tool, how does the model learn the result?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>It reads your Python variables directly</button>
+      <button type="button" data-k="b"><b>B</b>It guesses</button>
+      <button type="button" data-k="c"><b>C</b>The result is printed on screen and the model sees it</button>
+      <button type="button" data-k="d"><b>D</b>The result is added to the messages as a tool message, and the model is called again</button></div>
+      <p class="why">The model only knows what's in the messages. The tool result goes in as a new message.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T3 ============ -->
+<section id="t3">
+  <h2><span class="lessonno">03</span>Writing good tools with <code>@tool</code></h2>
+  <p class="oneline">In LangChain, <code>@tool</code> turns a normal function into a tool. The name, type hints and docstring become the description the model reads.</p>
+<pre><code class="py">from langchain.tools import tool
+
+MENU = {"plum cake": 500, "chocolate cake": 650, "cupcake": 80}
+
+@tool
+def get_price(item: str, qty: int = 1) -> str:
+    """Get the total price in rupees for a quantity of one menu item.
+
+    Args:
+        item: Menu item, e.g. "plum cake", "chocolate cake" or "cupcake"
+        qty: How many the customer wants
+    """
+    price = MENU.get(item.lower().strip())
+    if price is None:
+        return f"'{item}' is not on the menu. We have: {', '.join(MENU)}."
+    return f"{qty} x {item} = Rs {price * qty}"</code></pre>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Rule</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><strong>snake_case name</strong> that says what it does (<code>get_price</code>, not <code>tool1</code>)</td><td>The name is the first thing the model reads</td></tr>
+      <tr><td><strong>Type hints</strong> on every input</td><td>LangChain needs them to build the input description</td></tr>
+      <tr><td><strong>Docstring</strong>: when to use it, plus one example per input</td><td>This is how the model picks the right tool</td></tr>
+      <tr><td><strong>One job</strong> per tool</td><td>Small tools are easier for the model to choose and for you to test</td></tr>
+      <tr><td><strong>Return a helpful message</strong> on bad input, don't crash</td><td>The model can read it and ask the customer again</td></tr>
+    </tbody>
+  </table></div>
+  <div class="sim" id="sim-ds">
+    <div class="sim-head"><span class="ttl">Does the docstring change which tool the model picks?</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="row"><label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" id="ds-good"> Use clear names and docstrings</label></div>
+      <div class="result" id="ds-tools"></div>
+      <div class="tablewrap"><table><thead><tr><th>Customer asks</th><th>Model picks</th><th>Right?</th></tr></thead><tbody id="ds-body"></tbody></table></div>
+      <div class="status" id="ds-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>When an agent calls the wrong tool, the fix is very often the tool's <strong>name and docstring</strong>, not the model. Teams treat tool descriptions like a user manual written for the model.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p><strong>Labels on kitchen drawers.</strong> A new helper finds the spoons fast if the drawer says "spoons". If every drawer says "stuff", they'll open the wrong one, however smart they are.</p>
+  </div>
+  <div class="vid" data-vid="v3">
+    <div class="vid-head"><span class="ttl">Watch: labels on the drawers</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 236" role="img" aria-label="Animation: with clear tool names and docstrings the model opens the right drawer; with vague labels it opens the wrong one."><defs><marker id="mv3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v3-q" class="ve"><text x="20" y="30" class="t-b">Customer: "Are you open on Sunday?"</text></g><g id="v3-d1"><rect x="20" y="50" width="330" height="46" rx="6" class="b"/><text id="v3-t1" x="36" y="79" class="t-m">get_price: price of an item</text></g><g id="v3-d2"><rect x="20" y="108" width="330" height="46" rx="6" class="b"/><text id="v3-t2" x="36" y="137" class="t-m">is_open: hours for a day</text></g><g id="v3-d3"><rect x="20" y="166" width="330" height="46" rx="6" class="b"/><text id="v3-t3" x="36" y="195" class="t-m">log_order: save a complete order</text></g><g id="v3-m" class="ve" ><rect x="470" y="90" width="150" height="64" rx="8" class="ba"/><text x="545.0" y="118.0" text-anchor="middle" class="t-b">Model</text><text x="545.0" y="136.0" text-anchor="middle" class="t-s">reads the labels</text></g><g id="v3-ok" class="ve"><line class="ln" x1="468" y1="122" x2="352" y2="122" marker-end="url(#mv3)"/><text x="640" y="128" class="t-ok">right drawer</text></g><g id="v3-bad" class="ve"><path class="ln" d="M468 112 H410 V73 H352" marker-end="url(#mv3)"/><text x="640" y="128" class="t-red">wrong drawer</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li><code>@tool</code> + clear snake_case name + type hints + a docstring that says when to use it.</li><li>On bad input, return a helpful message instead of raising an error.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="c"><p class="q">1. The agent keeps calling <code>is_open</code> when customers ask about prices. What should you fix first?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Use a bigger model</button>
+      <button type="button" data-k="b"><b>B</b>Raise the temperature</button>
+      <button type="button" data-k="c"><b>C</b>The tool names and docstrings, so each says clearly when to use it</button>
+      <button type="button" data-k="d"><b>D</b>Remove all tools</button></div>
+      <p class="why">The model chooses tools by reading their names and descriptions. Vague labels cause wrong picks.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="b"><p class="q">2. A customer asks for a "donut", which isn't on the menu. What should <code>get_price</code> do?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Raise a KeyError and stop the agent</button>
+      <button type="button" data-k="b"><b>B</b>Return a message like "'donut' is not on the menu. We have: …"</button>
+      <button type="button" data-k="c"><b>C</b>Return 0</button>
+      <button type="button" data-k="d"><b>D</b>Make up a price</button></div>
+      <p class="why">A clear message lets the model explain politely and suggest real items. Returning 0 would quote a wrong price.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T4 ============ -->
+<section id="t4">
+  <h2><span class="lessonno">04</span>The agent with tools: <code>create_agent</code></h2>
+  <p class="oneline">Give <code>create_agent</code> a model, a list of tools and a system prompt. It runs the whole think → act → observe loop for you.</p>
+<pre><code class="py">from langchain.agents import create_agent
+
+agent = create_agent(model=llm, tools=[get_price, is_open], system_prompt=SYSTEM)
+
+result = agent.invoke({"messages": [{"role": "user",
+          "content": "Are you open on Sunday? And how much for 2 chocolate cakes?"}]})
+
+for m in result["messages"]:      # the trace: every step the agent took
+    m.pretty_print()
+print(result["messages"][-1].content)   # the final answer</code></pre>
+  <p>The result holds every message from the run: the question, each tool call, each tool result, and the final answer. Reading this <strong>trace</strong> is how you see what the agent actually did, and how you debug it.</p>
+  <div class="sim" id="sim-tr">
+    <div class="sim-head"><span class="ttl">Read the trace: how many tools does each question need?</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="opts" id="tr-o" role="group" aria-label="Question"></div>
+      <div class="hist" id="tr-log"></div>
+      <div class="stats"><div class="stat"><b id="tr-calls">0</b><span>tool calls</span></div><div class="stat"><b id="tr-rounds">0</b><span>model calls</span></div></div>
+      <div class="status" id="tr-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Developers spend a lot of their time reading agent traces, just like reading a call log in customer support. When an answer is wrong, the trace shows whether the model picked the wrong tool, passed wrong arguments, or misread a correct result.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>delivery tracking timeline</strong>: picked up → in transit → out for delivery → delivered. The trace is the agent's tracking timeline for one question.</p>
+  </div>
+  <div class="vid" data-vid="v4">
+    <div class="vid-head"><span class="ttl">Watch: reading the trace</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 236" role="img" aria-label="Animation: a timeline of one agent run: question, two tool calls, their results and the final answer."><defs><marker id="mv4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v4-line" class="ve"><line x1="120" y1="130" x2="640" y2="130" class="ln"/></g><g id="v4-s1" class="ve"><circle cx="120" cy="130" r="12" class="ba"/><rect x="30" y="40" width="180" height="56" rx="8" class="b"/><text x="120" y="64" text-anchor="middle" class="t-b">Question</text><text x="120" y="82" text-anchor="middle" class="t-s">open Sunday? 2 choc cakes?</text></g><g id="v4-s2" class="ve"><circle cx="293" cy="130" r="12" class="ba"/><rect x="203" y="160" width="180" height="56" rx="8" class="b"/><text x="293" y="184" text-anchor="middle" class="t-b">Tool calls</text><text x="293" y="202" text-anchor="middle" class="t-s">is_open + get_price</text></g><g id="v4-s3" class="ve"><circle cx="466" cy="130" r="12" class="ba"/><rect x="376" y="40" width="180" height="56" rx="8" class="b"/><text x="466" y="64" text-anchor="middle" class="t-b">Results</text><text x="466" y="82" text-anchor="middle" class="t-s">10–6 · Rs 1300</text></g><g id="v4-s4" class="ve"><circle cx="639" cy="130" r="12" class="ba"/><rect x="549" y="160" width="180" height="56" rx="8" class="b"/><text x="639" y="184" text-anchor="middle" class="t-b">Answer</text><text x="639" y="202" text-anchor="middle" class="t-s">both in one reply</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li><code>create_agent(model, tools, system_prompt)</code> → <code>.invoke({"messages": [...]})</code>.</li><li>The final answer is the last message; the full list is the trace. Every model call costs tokens.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="a"><p class="q">1. Where is the agent's final answer in <code>result</code>?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b><code>result["messages"][-1].content</code></button>
+      <button type="button" data-k="b"><b>B</b><code>result["messages"][0].content</code></button>
+      <button type="button" data-k="c"><b>C</b><code>result.choices[0].message.content</code></button>
+      <button type="button" data-k="d"><b>D</b><code>result["tools"]</code></button></div>
+      <p class="why">The last message is the final answer. The first one is the customer's question. (Option C is the Day 1 raw API style.)</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="c"><p class="q">2. "Open Sunday? Price of 2 chocolate cakes?" needs two tools. Roughly how many times is the model called?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Once</button>
+      <button type="button" data-k="b"><b>B</b>Exactly two times</button>
+      <button type="button" data-k="c"><b>C</b>At least two: once to ask for tools, then again to write the answer from the results</button>
+      <button type="button" data-k="d"><b>D</b>Zero; tools answer directly</button></div>
+      <p class="why">The model asks for tools in one call (it can ask for both at once), then is called again with the results. More tools can mean more rounds, and more tokens.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T5 ============ -->
+<section id="t5">
+  <h2><span class="lessonno">05</span>Rate limits and tool errors</h2>
+  <p class="oneline">Free API keys allow only a certain number of requests and tokens per minute. Agents make several calls per question, so they hit these limits faster.</p>
+  <p>When you go over the limit, the API answers with error <strong>429 (Too Many Requests)</strong>. LangChain's chat models retry a couple of times automatically (<code>max_retries</code>), but a busy agent can still run out. Three habits keep you safe:</p>
+  <ol>
+    <li><strong>Own key per student.</strong> Limits are per account; twenty students on one key share one limit.</li>
+    <li><strong>Fewer, smaller calls.</strong> Short prompts, trimmed history, test with a few questions, not a hundred.</li>
+    <li><strong>Catch errors and reply politely</strong> (Day 2): <code>try/except</code> around the agent call; tools return messages instead of crashing.</li>
+  </ol>
+<pre><code class="py">llm = ChatGroq(model="openai/gpt-oss-20b", temperature=0.2, max_retries=3)   # retry 429s a few times
+
+try:
+    result = agent.invoke({"messages": [{"role": "user", "content": question}]})
+    answer = result["messages"][-1].content
+except Exception as e:                   # last line of defence for the customer
+    print("Agent error:", e)             # you see the real problem…
+    answer = "Sorry, I'm a little busy. Please try again in a minute."   # …the customer sees this</code></pre>
+  <div class="sim" id="sim-rl">
+    <div class="sim-head"><span class="ttl">Hit the limit on purpose</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <p class="note" style="margin:0">Example limit for this demo: 6 requests per 10 seconds. Each agent question uses about 2–3 requests.</p>
+      <div class="row"><button class="btn" type="button" id="rl-one">Ask 1 question</button><button class="btn ghost" type="button" id="rl-five">Ask 5 questions at once</button><label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" id="rl-share"> 4 students share this key</label></div>
+      <div class="bar-wrap"><div class="bar-fill" id="rl-bar"></div></div>
+      <div class="hist" id="rl-log"></div>
+      <div class="status" id="rl-st">Requests in the last 10 seconds: 0 / 6</div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Railway booking sites face a similar rush at Tatkal time: too many requests at once and some are told to wait. APIs do the same to stay fair for everyone. Paid plans raise the limit; good design avoids hitting it.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>toll plaza</strong> that lets a fixed number of vehicles through each minute. Extra cars wait. If your whole class drives through one booth (one shared key), everyone waits.</p>
+  </div>
+  <div class="vid" data-vid="v5">
+    <div class="vid-head"><span class="ttl">Watch: the toll plaza</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 256" role="img" aria-label="Animation: six requests pass through the API gate; the seventh gets 429 and waits, then a retry succeeds."><defs><marker id="mv5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v5-gate" class="ve"><rect x="340" y="40" width="80" height="170" rx="6" class="ba"/><text x="380" y="30" text-anchor="middle" class="t-b">API (6 per 10 s)</text><text x="380" y="130" text-anchor="middle" class="t-s">gate</text></g><g id="v5-c1" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="20" y="60" width="80" height="40" rx="6" class="bw"/><text x="60" y="85" text-anchor="middle" class="t-s">request 1</text></g><g id="v5-c2" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="120" y="60" width="80" height="40" rx="6" class="bw"/><text x="160" y="85" text-anchor="middle" class="t-s">request 2</text></g><g id="v5-c3" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="220" y="60" width="80" height="40" rx="6" class="bw"/><text x="260" y="85" text-anchor="middle" class="t-s">request 3</text></g><g id="v5-c4" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="20" y="130" width="80" height="40" rx="6" class="bw"/><text x="60" y="155" text-anchor="middle" class="t-s">request 4</text></g><g id="v5-c5" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="120" y="130" width="80" height="40" rx="6" class="bw"/><text x="160" y="155" text-anchor="middle" class="t-s">request 5</text></g><g id="v5-c6" class="ve" style="transform:translate(0px,0px)" data-t0="translate(0px,0px)"><rect x="220" y="130" width="80" height="40" rx="6" class="bw"/><text x="260" y="155" text-anchor="middle" class="t-s">request 6</text></g><g id="v5-x" class="ve"><rect x="20" y="200" width="80" height="40" rx="6" class="bd"/><text x="60" y="225" text-anchor="middle" class="t-s">request 7</text><text x="120" y="225" class="t-red">429: wait</text></g><g id="v5-retry" class="ve"><text x="460" y="225" class="t-ok">a few seconds later: retry → OK</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>429 = slow down. <code>max_retries</code> handles short bursts.</li><li>Own key per student, small tests, try/except around the agent.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="d"><p class="q">1. What does error 429 mean?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Your API key is wrong</button>
+      <button type="button" data-k="b"><b>B</b>The model name is wrong</button>
+      <button type="button" data-k="c"><b>C</b>The tool has a bug</button>
+      <button type="button" data-k="d"><b>D</b>Too many requests in a short time; wait and try again</button></div>
+      <p class="why">429 is a rate limit. A wrong key is 401; a wrong model name is 404.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="a"><p class="q">2. Twenty students share one Groq key and keep getting 429. Best fix?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Each student uses their own free key</button>
+      <button type="button" data-k="b"><b>B</b>Raise the temperature</button>
+      <button type="button" data-k="c"><b>C</b>Add more tools</button>
+      <button type="button" data-k="d"><b>D</b>Send longer prompts</button></div>
+      <p class="why">Limits are per account. Separate keys give each student their own limit.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T6 ============ -->
+<section id="t6">
+  <h2><span class="lessonno">06</span>Structured output with Pydantic</h2>
+  <p class="oneline">Describe the record you want as a Pydantic class. The model fills it in, and Pydantic checks every field before your code uses it.</p>
+  <p>On Day 2 you asked for JSON in the prompt and hoped for the best. <strong>Pydantic</strong> is a Python library that defines a record's fields and their types, and <strong>rejects</strong> data that doesn't fit. LangChain's <code>with_structured_output</code> makes the model reply in exactly that shape.</p>
+<pre><code class="py">from typing import Literal
+from pydantic import BaseModel, Field
+
+class Order(BaseModel):
+    """A cake order taken from a customer's chat message."""
+    name: str = Field(description="Customer's first name")
+    item: Literal["plum cake", "chocolate cake", "cupcake"] = Field(description="Menu item")
+    qty: int = Field(description="How many", ge=1)          # ge=1: at least 1
+    date: str = Field(description="Pickup date as the customer said it, e.g. '24 Dec'")
+    eggless: bool = Field(description="True if the customer asked for eggless")
+
+extractor = llm.with_structured_output(Order)
+order = extractor.invoke("hi ravi here, need 2 plum cakes for 24th dec, eggless pls")
+print(order)            # name='Ravi' item='plum cake' qty=2 date='24 Dec' eggless=True
+print(order.qty * 500)  # 1000, a real int, ready for maths</code></pre>
+  <div class="sim" id="sim-pv">
+    <div class="sim-head"><span class="ttl">Pydantic checks every field</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="two">
+        <div><label for="pv-name">name</label><input type="text" id="pv-name" value="Ravi"></div>
+        <div><label for="pv-item">item</label><select id="pv-item"><option>plum cake</option><option>chocolate cake</option><option>cupcake</option><option>donut</option></select></div>
+        <div><label for="pv-qty">qty</label><input type="text" id="pv-qty" value="2"></div>
+        <div><label for="pv-date">date</label><input type="text" id="pv-date" value="24 Dec"></div>
+        <div><label for="pv-egg">eggless</label><select id="pv-egg"><option>true</option><option>false</option><option>yes</option><option>maybe</option></select></div>
+      </div>
+      <div class="row"><button class="btn" type="button" id="pv-go">Order(**data)</button></div>
+      <div class="result" id="pv-out"></div>
+      <div class="status" id="pv-st">Try qty = "two", then 0, then item = donut.</div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Online forms such as IRCTC or college admission portals won't let you submit an age of "abc" or a date in the wrong format. Pydantic is that form check for data coming out of a model, before it reaches your sheet, your bill or your database.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>bank deposit slip checked at the counter</strong>. The cashier won't accept it if the amount box says "some money" or the account number is missing. Clean slips only.</p>
+  </div>
+  <div class="vid" data-vid="v6">
+    <div class="vid-head"><span class="ttl">Watch: a form that checks itself</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 256" role="img" aria-label="Animation: the Order form checks each field; qty "two" is rejected, then 2 is accepted and a valid Order is created."><defs><marker id="mv6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v6-form" class="ve"><rect x="20" y="20" width="360" height="220" rx="10" class="b"/><text x="36" y="44" class="t-b">class Order(BaseModel)</text></g><g id="v6-f1" class="ve"><text x="36" y="76" class="t-m">name: str</text><rect x="230" y="58" width="130" height="26" rx="5" class="bw"/><text id="v6-v1" x="242" y="76" class="t-m">"Ravi"</text></g><g id="v6-f2" class="ve"><text x="36" y="110" class="t-m">item: Literal[...]</text><rect x="230" y="92" width="130" height="26" rx="5" class="bw"/><text id="v6-v2" x="242" y="110" class="t-m">"plum cake"</text></g><g id="v6-f3" class="ve"><text x="36" y="144" class="t-m">qty: int, ≥ 1</text><rect x="230" y="126" width="130" height="26" rx="5" class="bw"/><text id="v6-v3" x="242" y="144" class="t-m">"two"</text></g><g id="v6-f4" class="ve"><text x="36" y="178" class="t-m">date: str</text><rect x="230" y="160" width="130" height="26" rx="5" class="bw"/><text id="v6-v4" x="242" y="178" class="t-m">"24 Dec"</text></g><g id="v6-f5" class="ve"><text x="36" y="212" class="t-m">eggless: bool</text><rect x="230" y="194" width="130" height="26" rx="5" class="bw"/><text id="v6-v5" x="242" y="212" class="t-m">true</text></g><g id="v6-err" class="ve"><text x="400" y="138" class="t-red">✗ qty: "two" is not a valid integer</text></g><g id="v6-ok" class="ve"><rect x="400" y="160" width="340" height="60" rx="8" class="ba"/><text x="570" y="186" text-anchor="middle" class="t-b">✓ Order(name="Ravi", item="plum cake",</text><text x="570" y="206" text-anchor="middle" class="t-b">qty=2, date="24 Dec", eggless=True)</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>A Pydantic class = field names + types + descriptions + rules (<code>Literal</code>, <code>ge=1</code>).</li><li><code>llm.with_structured_output(Order)</code> returns a checked <code>Order</code>, not a string.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="b"><p class="q">1. What does Pydantic add on top of "please reply in JSON"?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>It makes the model faster</button>
+      <button type="button" data-k="b"><b>B</b>It defines exact fields and types and rejects data that doesn't fit</button>
+      <button type="button" data-k="c"><b>C</b>It saves the data to Google Sheets</button>
+      <button type="button" data-k="d"><b>D</b>It translates the message</button></div>
+      <p class="why">Pydantic is a checker: wrong types, missing fields or values outside the rules are caught before your code uses them.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="c"><p class="q">2. With <code>item: Literal["plum cake", "chocolate cake", "cupcake"]</code>, what happens if the data says item = "donut"?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>It is saved as "donut"</button>
+      <button type="button" data-k="b"><b>B</b>It is changed to "plum cake"</button>
+      <button type="button" data-k="c"><b>C</b>Pydantic raises a validation error</button>
+      <button type="button" data-k="d"><b>D</b>The field is left empty</button></div>
+      <p class="why"><code>Literal</code> allows only the listed values. Anything else is rejected.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T7 ============ -->
+<section id="t7">
+  <h2><span class="lessonno">07</span>Saving to Google Sheets</h2>
+  <p class="oneline">A Google Sheet is the simplest database a small business already understands. In Colab, three lines connect to it.</p>
+<pre><code class="py">from google.colab import auth
+auth.authenticate_user()                 # a pop-up asks you to sign in with Google
+
+import gspread
+from google.auth import default
+creds, _ = default()
+gc = gspread.authorize(creds)            # gc = your Google Sheets client
+
+sh = gc.create("Sweet Crumbs Orders")    # first time only; later: gc.open("Sweet Crumbs Orders")
+ws = sh.sheet1                           # the first tab
+ws.append_row(["name", "item", "qty", "date", "eggless", "total"])   # header row
+ws.append_row(["Ravi", "plum cake", 2, "24 Dec", "yes", 1000])      # one order</code></pre>
+  <p><code>append_row</code> adds one row at the bottom. Each order becomes one row, and the owner sees it instantly on her phone in the Google Sheets app. (In Week 2, in VS Code, we'll use a service-account key file instead of this Colab sign-in.)</p>
+  <div class="sim" id="sim-gs">
+    <div class="sim-head"><span class="ttl">Append orders to the sheet</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="opts" id="gs-o" role="group" aria-label="Order"></div>
+      <div class="tablewrap"><table><thead><tr><th>#</th><th>name</th><th>item</th><th>qty</th><th>date</th><th>eggless</th><th>total</th></tr></thead><tbody id="gs-body"></tbody></table></div>
+      <div class="row"><button class="btn ghost" type="button" id="gs-clear">Clear sheet</button></div>
+      <div class="status" id="gs-st">Click an order to run <code>ws.append_row(...)</code>.</div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Lots of small shops, tuition centres and event planners already run on Google Sheets: orders, attendance, payments. An agent that writes into the sheet they already use is easier to adopt than a new app they have to learn.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>The shop's <strong>order register</strong>, but one that fills itself in, never has messy handwriting, and can be checked from home.</p>
+  </div>
+  <div class="vid" data-vid="v7">
+    <div class="vid-head"><span class="ttl">Watch: one order, one row</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 246" role="img" aria-label="Animation: append_row adds orders to the Sweet Crumbs Orders sheet one row at a time, and the owner sees them on her phone."><defs><marker id="mv7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v7-sheet" class="ve"><rect x="20" y="20" width="560" height="210" rx="8" class="b"/><text x="36" y="44" class="t-b">Sweet Crumbs Orders</text><text x="36" y="72" class="t-s">name</text><text x="116" y="72" class="t-s">item</text><text x="236" y="72" class="t-s">qty</text><text x="286" y="72" class="t-s">date</text><text x="376" y="72" class="t-s">eggless</text><text x="466" y="72" class="t-s">total</text><line x1="30" y1="80" x2="570" y2="80" class="ln"/></g><g id="v7-r1" class="ve"><rect x="30" y="84" width="540" height="30" rx="4" class="bw"/><text x="36" y="104" class="t-m">Ravi</text><text x="116" y="104" class="t-m">plum cake</text><text x="236" y="104" class="t-m">2</text><text x="286" y="104" class="t-m">24 Dec</text><text x="376" y="104" class="t-m">yes</text><text x="466" y="104" class="t-m">1000</text></g><g id="v7-r2" class="ve"><rect x="30" y="120" width="540" height="30" rx="4" class="bw"/><text x="36" y="140" class="t-m">Sravani</text><text x="116" y="140" class="t-m">cupcake</text><text x="236" y="140" class="t-m">6</text><text x="286" y="140" class="t-m">tomorrow</text><text x="376" y="140" class="t-m">no</text><text x="466" y="140" class="t-m">480</text></g><g id="v7-r3" class="ve"><rect x="30" y="156" width="540" height="30" rx="4" class="bw"/><text x="36" y="176" class="t-m">Arjun</text><text x="116" y="176" class="t-m">choc cake</text><text x="236" y="176" class="t-m">1</text><text x="286" y="176" class="t-m">Saturday</text><text x="376" y="176" class="t-m">yes</text><text x="466" y="176" class="t-m">650</text></g><g id="v7-code" class="ve"><text x="600" y="110" class="t-m">ws.append_row(</text><text x="600" y="130" class="t-m">  [...])</text></g><g id="v7-phone" class="ve" ><rect x="600" y="160" width="140" height="60" rx="8" class="ba"/><text x="670.0" y="186.0" text-anchor="middle" class="t-b">Owner's phone</text><text x="670.0" y="204.0" text-anchor="middle" class="t-s">sees it live</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Colab: <code>auth.authenticate_user()</code> → <code>gspread.authorize(creds)</code> → <code>gc.open(...)</code> → <code>ws.append_row([...])</code>.</li><li>One order = one row; keep the columns in the same order every time.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="a"><p class="q">1. Which gspread call adds a new order at the bottom of the sheet?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b><code>ws.append_row([...])</code></button>
+      <button type="button" data-k="b"><b>B</b><code>gc.create(...)</code></button>
+      <button type="button" data-k="c"><b>C</b><code>auth.authenticate_user()</code></button>
+      <button type="button" data-k="d"><b>D</b><code>gspread.authorize(...)</code></button></div>
+      <p class="why"><code>append_row</code> writes one row after the last filled one. <code>create</code> makes a new spreadsheet.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="d"><p class="q">2. Why save orders to Google Sheets instead of printing them in Colab?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Printing uses more tokens</button>
+      <button type="button" data-k="b"><b>B</b>Colab can't print tables</button>
+      <button type="button" data-k="c"><b>C</b>Sheets make the model smarter</button>
+      <button type="button" data-k="d"><b>D</b>The data stays after the notebook closes, and the owner can see it on her phone</button></div>
+      <p class="why">Printed output disappears with the session. A sheet is saved, shared and already familiar to the owner.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T8 ============ -->
+<section id="t8">
+  <h2><span class="lessonno">08</span>Putting it together: the <code>log_order</code> tool</h2>
+  <p class="oneline">Wrap "check the order, work out the total, save the row" in one tool. The agent decides when an order is complete and calls it.</p>
+<pre><code class="py">@tool
+def log_order(name: str, item: str, qty: int, date: str, eggless: bool) -> str:
+    """Save a confirmed cake order to the Orders sheet.
+    Use only when the customer has given their name, item, quantity and pickup date."""
+    try:
+        order = Order(name=name, item=item, qty=qty, date=date, eggless=eggless)   # Pydantic check
+    except Exception as e:
+        return f"Could not save the order: {e}. Ask the customer to correct it."
+    total = MENU[order.item] * order.qty
+    ws.append_row([order.name, order.item, order.qty, order.date,
+                   "yes" if order.eggless else "no", total])
+    return f"Saved: {order.qty} x {order.item} for {order.name} on {order.date}, Rs {total}."</code></pre>
+  <p>Notice what the docstring says: <em>use only when</em> all details are known. If the customer forgets the date, the agent should ask, not save half an order. The tool also double-checks with Pydantic, so even if the agent makes a mistake, a bad row never reaches the sheet.</p>
+  <div class="sim" id="sim-e2e">
+    <div class="sim-head"><span class="ttl">One message, all the way to the sheet</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="opts" id="e2-o" role="group" aria-label="Customer message"></div>
+      <div class="row"><button class="btn" type="button" id="e2-next">Next step</button><button class="btn ghost" type="button" id="e2-reset">Reset</button></div>
+      <div class="hist" id="e2-log"></div>
+      <div class="status" id="e2-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>This is the core of most business agents: understand a messy request, check it, act on it, confirm it. For now the agent saves straight away; on <strong>Day 7</strong> we add an owner-approval step before anything is saved or sent.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>careful billing clerk</strong>: listens to the customer, fills the order form, checks every box, writes it in the register and reads it back. The <code>log_order</code> tool is the form, the check and the register in one.</p>
+  </div>
+  <div class="vid" data-vid="v8">
+    <div class="vid-head"><span class="ttl">Watch: chat to sheet, end to end</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 236" role="img" aria-label="Animation: a chat message goes to the agent, which calls log_order; Pydantic checks it, a sheet row is added and the customer gets a confirmation."><defs><marker id="mv8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v8-msg" class="ve" ><rect x="20" y="80" width="140" height="70" rx="8" class="b"/><text x="90.0" y="111.0" text-anchor="middle" class="t-b">Chat message</text><text x="90.0" y="129.0" text-anchor="middle" class="t-s">"2 eggless choc…"</text></g><g id="v8-a1" class="ve"><line class="ln" x1="160" y1="115" x2="188" y2="115" marker-end="url(#mv8)"/></g><g id="v8-ag" class="ve" ><rect x="190" y="80" width="130" height="70" rx="8" class="ba"/><text x="255.0" y="111.0" text-anchor="middle" class="t-b">Agent</text><text x="255.0" y="129.0" text-anchor="middle" class="t-s">decides</text></g><g id="v8-a2" class="ve"><line class="ln" x1="320" y1="115" x2="348" y2="115" marker-end="url(#mv8)"/></g><g id="v8-tool" class="ve" ><rect x="350" y="80" width="130" height="70" rx="8" class="bw"/><text x="415.0" y="111.0" text-anchor="middle" class="t-b">log_order</text><text x="415.0" y="129.0" text-anchor="middle" class="t-s">tool</text></g><g id="v8-a3" class="ve"><line class="ln" x1="480" y1="115" x2="508" y2="115" marker-end="url(#mv8)"/></g><g id="v8-pyd" class="ve" ><rect x="510" y="80" width="100" height="70" rx="8" class="b"/><text x="560.0" y="111.0" text-anchor="middle" class="t-b">Pydantic</text><text x="560.0" y="129.0" text-anchor="middle" class="t-s">check ✓</text></g><g id="v8-a4" class="ve"><line class="ln" x1="610" y1="115" x2="638" y2="115" marker-end="url(#mv8)"/></g><g id="v8-row" class="ve" ><rect x="640" y="80" width="100" height="70" rx="8" class="ba"/><text x="690.0" y="111.0" text-anchor="middle" class="t-b">Sheet</text><text x="690.0" y="129.0" text-anchor="middle" class="t-s">new row</text></g><g id="v8-reply" class="ve"><path class="ln" d="M690 150 V200 H90 V152" marker-end="url(#mv8)"/><text x="390" y="222" text-anchor="middle" class="t-ok">"Done, Ravi! 2 eggless chocolate cakes, 24 Dec, Rs 1,300."</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Good tools check their own inputs (Pydantic) and return clear messages.</li><li>The docstring says <em>when</em> to use the tool: here, only when the order is complete.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="c"><p class="q">1. The customer says "2 plum cakes please" but gives no name or date. What should a well-built agent do?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Call log_order with a blank name and date</button>
+      <button type="button" data-k="b"><b>B</b>Make up a name and today's date</button>
+      <button type="button" data-k="c"><b>C</b>Ask for the name and pickup date, then call log_order</button>
+      <button type="button" data-k="d"><b>D</b>Refuse the order</button></div>
+      <p class="why">The docstring says "use only when name, item, quantity and date are given". Missing details → ask first.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="b"><p class="q">2. Why does <code>log_order</code> build an <code>Order(...)</code> inside it, when the agent already passed the values?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>To make the code longer</button>
+      <button type="button" data-k="b"><b>B</b>A second check: if the agent passes bad values, Pydantic stops them before they reach the sheet</button>
+      <button type="button" data-k="c"><b>C</b>Google Sheets only accepts Pydantic objects</button>
+      <button type="button" data-k="d"><b>D</b>To call the model again</button></div>
+      <p class="why">Never fully trust model output that is about to be saved. Checking inside the tool protects the owner's data.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ BUILD ============ -->
+<section id="build">
+  <h2>Today's build: a Sweet Crumbs agent that looks up and saves</h2>
+  <p>Run these cells in order in a new Colab notebook. Your Groq key must be in Colab Secrets as <code>GROQ_API_KEY</code>.</p>
+  <h3>Cell 1 · Setup</h3>
+<pre><code class="py">!pip install -q langchain langchain-groq gspread
+
+import os
+from google.colab import userdata, auth
+os.environ["GROQ_API_KEY"] = userdata.get("GROQ_API_KEY")
+
+from langchain_groq import ChatGroq
+llm = ChatGroq(model="openai/gpt-oss-20b", temperature=0.2, max_retries=3)
+
+auth.authenticate_user()
+import gspread
+from google.auth import default
+creds, _ = default()
+gc = gspread.authorize(creds)
+sh = gc.create("Sweet Crumbs Orders")      # run once; next time use gc.open("Sweet Crumbs Orders")
+ws = sh.sheet1
+ws.append_row(["name", "item", "qty", "date", "eggless", "total"])
+print("Sheet ready:", sh.url)</code></pre>
+  <h3>Cell 2 · Data, the Order model and three tools</h3>
+<pre><code class="py">from typing import Literal
+from pydantic import BaseModel, Field
+from langchain.tools import tool
+
+MENU = {"plum cake": 500, "chocolate cake": 650, "cupcake": 80}
+HOURS = {"monday": "9 am to 8 pm", "tuesday": "9 am to 8 pm", "wednesday": "9 am to 8 pm",
+         "thursday": "9 am to 8 pm", "friday": "9 am to 8 pm", "saturday": "9 am to 8 pm",
+         "sunday": "10 am to 6 pm"}
+
+class Order(BaseModel):
+    """A cake order taken from a customer's chat message."""
+    name: str = Field(description="Customer's first name")
+    item: Literal["plum cake", "chocolate cake", "cupcake"] = Field(description="Menu item")
+    qty: int = Field(description="How many", ge=1)
+    date: str = Field(description="Pickup date as the customer said it")
+    eggless: bool = Field(description="True if the customer asked for eggless")
+
+@tool
+def get_price(item: str, qty: int = 1) -> str:
+    """Get the total price in rupees for a quantity of one menu item.
+
+    Args:
+        item: Menu item, e.g. "plum cake", "chocolate cake" or "cupcake"
+        qty: How many the customer wants
+    """
+    price = MENU.get(item.lower().strip())
+    if price is None:
+        return f"'{item}' is not on the menu. We have: {', '.join(MENU)}."
+    return f"{qty} x {item} = Rs {price * qty}"
+
+@tool
+def is_open(day: str) -> str:
+    """Check the bakery's opening hours for a day of the week, e.g. "sunday"."""
+    hours = HOURS.get(day.lower().strip())
+    return f"Open {hours} on {day}." if hours else f"'{day}' is not a day of the week."
+
+@tool
+def log_order(name: str, item: str, qty: int, date: str, eggless: bool) -> str:
+    """Save a confirmed cake order to the Orders sheet.
+    Use only when the customer has given their name, item, quantity and pickup date."""
+    try:
+        order = Order(name=name, item=item.lower().strip(), qty=qty, date=date, eggless=eggless)
+    except Exception as e:
+        return f"Could not save the order: {e}. Ask the customer to correct it."
+    total = MENU[order.item] * order.qty
+    ws.append_row([order.name, order.item, order.qty, order.date,
+                   "yes" if order.eggless else "no", total])
+    return f"Saved: {order.qty} x {order.item} for {order.name} on {order.date}, Rs {total}."</code></pre>
+  <h3>Cell 3 · The agent</h3>
+<pre><code class="py">from langchain.agents import create_agent
+
+SYSTEM = """ROLE:   You are the friendly order assistant for Sweet Crumbs Home Bakery.
+FACTS:  Orders need 24 hours' notice. All cakes have eggless versions.
+RULES:  Always use get_price for prices and is_open for timings; never guess them.
+        Before log_order, make sure you have name, item, quantity and pickup date; ask if missing.
+        After saving, read the order back with the total.
+FORMAT: Under 60 words, friendly, English or Telugu matching the customer."""
+
+agent = create_agent(model=llm, tools=[get_price, is_open, log_order], system_prompt=SYSTEM)
+
+history = []
+def chat(text: str) -> str:
+    global history
+    try:
+        result = agent.invoke({"messages": history + [{"role": "user", "content": text}]})
+        history = result["messages"]                  # keep the whole run as memory
+        return history[-1].content
+    except Exception as e:
+        print("Agent error:", e)
+        return "Sorry, I'm a little busy. Please try again in a minute."
+
+print(chat("Are you open on Sunday? How much are 2 chocolate cakes?"))
+print(chat("I'm Ravi. Please book 2 eggless chocolate cakes for 24 Dec."))   # check your sheet!</code></pre>
+  <h3>Cell 4 · See what it did</h3>
+<pre><code class="py">for m in history:
+    m.pretty_print()        # question → tool calls → tool results → answers</code></pre>
+  <div class="box real"><span class="tag">Test it like a customer</span><p>Ask for a "donut" (not on the menu), order without giving a date, and order 0 cupcakes. In each case the agent should ask or explain, and nothing wrong should appear in the sheet. Then add these as new rows in your <code>tests.csv</code> from Day 3.</p></div>
+
+  <h3>Your 30%: do it yourself</h3>
+  <ol>
+    <li><strong>Your tools:</strong> turn the two functions you wrote for homework into <code>@tool</code>s for your own business, with clear docstrings.</li>
+    <li><strong>Your record:</strong> write a Pydantic class for one record in your business (an admission enquiry, a tailoring order, a booking) and test it with <code>with_structured_output</code> on 5 messy messages.</li>
+    <li><strong>Your sheet:</strong> create a sheet for your business and a <code>log_…</code> tool that saves your record.</li>
+    <li><strong>Break it:</strong> rename one tool to <code>tool1</code> with docstring "does stuff". Does the agent still pick it correctly? Change it back.</li>
+    <li><strong>Read the trace:</strong> for one question, count the tool calls and model calls with <code>pretty_print()</code>.</li>
+  </ol>
+  <div class="box lens"><span class="tag">Before Day 5</span><p>Write 15–20 facts about your business (policies, timings, delivery areas, FAQs) in a text file. Tomorrow the agent learns to search them (RAG) instead of carrying them all in the prompt.</p></div>
+</section>
+
+<section id="wrap">
+  <h2>Summary: Day 4 in one table</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Idea</th><th>One line</th><th>Analogy</th></tr></thead>
+    <tbody>
+      <tr><td>Tools</td><td>Functions for live facts, actions and exact work</td><td>Phone and register for the exam student</td></tr>
+      <tr><td>Function calling</td><td>Model asks, your code runs, result goes back as a message</td><td>Waiter and kitchen</td></tr>
+      <tr><td>Good tools</td><td>snake_case name, type hints, docstring with "when to use"</td><td>Labelled kitchen drawers</td></tr>
+      <tr><td>create_agent</td><td>Model + tools + prompt; the trace shows every step</td><td>Delivery tracking timeline</td></tr>
+      <tr><td>Rate limits</td><td>429 = slow down; own key, small tests, try/except</td><td>Toll plaza</td></tr>
+      <tr><td>Pydantic</td><td>Fields + types + rules; rejects bad data</td><td>Deposit slip checked at the counter</td></tr>
+      <tr><td>Google Sheets</td><td><code>append_row</code> = one order, one row</td><td>A register that fills itself</td></tr>
+      <tr><td>log_order</td><td>Check → total → save → confirm, only when complete</td><td>Careful billing clerk</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <p>Ai Agents Workshop · Level 2 · Day 4 tutorial, prepared 18 November 2026. LangChain code follows the LangChain documentation as of November 2026 (<code>@tool</code> from <code>langchain.tools</code>, <code>create_agent</code>, <code>with_structured_output</code>); gspread in Colab follows the gspread documentation. Libraries change quickly, so run the build once before class. Agent traces and replies in the simulators are typical examples, not live output; the rate limit in the demo is an example number, not Groq's actual limit.</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function pick(container,labels,onPick){
+  container.innerHTML=labels.map(function(l,i){return '<button class="opt" type="button" data-i="'+i+'">'+l+'</button>';}).join('');
+  var bs=container.querySelectorAll('.opt');
+  bs.forEach(function(b){b.addEventListener('click',function(){bs.forEach(function(x){x.classList.toggle('right',x===b);});onPick(+b.getAttribute('data-i'));});});
+  return bs;
+}
+function sorter(listId,stId,items,labels,doneMsg){
+  var box=$(listId),right=0,answered=0;
+  box.innerHTML=items.map(function(it,i){return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div><strong>'+(i+1)+'.</strong> '+esc(it.t)+'</div><div class="opts" data-i="'+i+'">'+labels.map(function(l,j){return '<button class="opt" type="button" data-j="'+j+'">'+l+'</button>';}).join('')+'</div><div class="note" data-why="'+i+'"></div></div>';}).join('');
+  box.querySelectorAll('.opts').forEach(function(g){var i=+g.getAttribute('data-i'),it=items[i],done=false;
+    g.querySelectorAll('.opt').forEach(function(b){b.addEventListener('click',function(){var j=+b.getAttribute('data-j');
+      g.querySelectorAll('.opt').forEach(function(x){x.classList.remove('right','wrong');});
+      g.querySelectorAll('.opt')[it.a].classList.add('right');if(j!==it.a)b.classList.add('wrong');
+      box.querySelector('[data-why="'+i+'"]').innerHTML=(j===it.a?'<strong>Yes.</strong> ':'<strong>Not quite.</strong> ')+esc(it.w);
+      if(!done){done=true;answered++;if(j===it.a)right++;}
+      $(stId).innerHTML=answered<items.length?answered+' of '+items.length+' answered.':'<strong>'+right+' of '+items.length+' right first time.</strong> '+doneMsg;
+    });});});
+}
+function stepper(nextId,resetId,logId,stId,steps,intro,onStep){
+  var k=0;
+  function reset(){k=0;$(logId).innerHTML='';$(stId).innerHTML=intro;$(nextId).disabled=false;if(onStep)onStep(null);}
+  $(nextId).addEventListener('click',function(){var S=typeof steps==='function'?steps():steps;if(k>=S.length)return;var s=S[k];
+    $(logId).insertAdjacentHTML('beforeend','<div class="'+s.r+' fresh">'+s.t+'</div>');$(stId).innerHTML=s.s;if(onStep)onStep(s);k++;if(k>=S.length)$(nextId).disabled=true;});
+  $(resetId).addEventListener('click',reset);reset();
+  return reset;
+}
+
+/* T1 needs a tool */
+if($('nt-list'))sorter('nt-list','nt-st',[
+  {t:'"What is the price of a plum cake today?"',a:1,w:'Prices live in the bakery’s menu and can change: get_price.'},
+  {t:'"Write a sweet birthday wish for my sister"',a:0,w:'Creative text: the model can write this alone.'},
+  {t:'"Are you open on Sunday?"',a:1,w:'Opening hours are the bakery’s own data: is_open.'},
+  {t:'"What is the difference between a plum cake and a fruit cake?"',a:0,w:'General knowledge the model already has.'},
+  {t:'"Please book 2 cupcakes for Friday"',a:1,w:'Saving an order is an action: log_order.'},
+  {t:'"Total for 37 cupcakes at Rs 80?"',a:1,w:'Exact maths is safest in Python. The model may slip on numbers.'}],
+  ['Model alone','Needs a tool'],'Facts, actions and exact maths need tools; writing and explaining don’t.');
+
+/* T2 function calling */
+(function(){
+  if(!$('fc-next'))return;
+  $('fc-schema').textContent='{\n  "name": "get_price",\n  "description": "Get the total price in rupees\n     for a quantity of one menu item.",\n  "parameters": {\n    "item": {"type": "string"},\n    "qty":  {"type": "integer", "default": 1}\n  }\n}';
+  stepper('fc-next','fc-reset','fc-log','fc-st',[
+    {r:'r-system',t:'<strong>system:</strong> You are Sweet Crumbs’ assistant… (+ the tool description on the left)',s:'Your code sends the messages <strong>and</strong> the tool description.'},
+    {r:'r-user',t:'<strong>user:</strong> How much for 3 plum cakes?',s:'The customer’s question.'},
+    {r:'r-assistant',t:'<strong>assistant (tool call):</strong> get_price(item="plum cake", qty=3)',s:'Model call 1: instead of text, the model replies with a <strong>tool call</strong>. It has not run anything.'},
+    {r:'r-system',t:'<strong>tool (get_price):</strong> 3 x plum cake = Rs 1500',s:'<strong>Your code</strong> runs get_price and adds the result as a <code>tool</code> message.'},
+    {r:'r-assistant',t:'<strong>assistant:</strong> 3 plum cakes are Rs 1,500. Shall I book them? We need 24 hours’ notice.',s:'Model call 2: with the result in front of it, the model writes the final answer. Two model calls, one tool run.'}],
+    'Press <strong>Next step</strong> to watch the messages list grow.');
+})();
+
+/* T3 docstrings */
+(function(){
+  if(!$('ds-good'))return;
+  var Q=[['How much are 4 cupcakes?',0],['Are you open on Monday?',1],['Book 2 plum cakes for Ravi on 24 Dec',2],['What time do you close on Sunday?',1]];
+  var GOOD=['get_price(item, qty): Get the total price in rupees for a quantity of one menu item.','is_open(day): Check the bakery’s opening hours for a day of the week.','log_order(name, item, qty, date, eggless): Save a confirmed order. Use only when name, item, quantity and date are known.'];
+  var BAD=['tool1(x, n): Does stuff.','check(d): Checks it.','save(a, b, c, d, e): Handles things.'];
+  var PICK_BAD=[1,0,1,2];
+  function draw(){var g=$('ds-good').checked,ok=0,names=g?['get_price','is_open','log_order']:['tool1','check','save'];
+    $('ds-tools').textContent='Tools the model sees:\n'+(g?GOOD:BAD).map(function(s){return '• '+s;}).join('\n');
+    $('ds-body').innerHTML=Q.map(function(q,i){var p=g?q[1]:PICK_BAD[i],r=p===q[1];if(r)ok++;return '<tr><td>'+esc(q[0])+'</td><td><code>'+names[p]+'</code></td><td>'+(r?'✓':'✗')+'</td></tr>';}).join('');
+    $('ds-st').innerHTML=g?'<strong>'+ok+' of 4 right.</strong> Clear names and “when to use” docstrings make the choice easy.':'<strong>'+ok+' of 4 right.</strong> Same model, same code inside the tools; only the labels are vague, and it picks the wrong one. Tick the box.';}
+  $('ds-good').addEventListener('change',draw);draw();
+})();
+
+/* T4 trace viewer */
+(function(){
+  if(!$('tr-o'))return;
+  var Q=[
+    {l:'"Do you make eggless cakes?"',c:0,m:1,s:[['r-user','<strong>Human:</strong> Do you make eggless cakes?'],['r-assistant','<strong>AI:</strong> Yes! All our cakes come in eggless versions. Which one would you like?']],n:'No tool needed: the fact is in the system prompt. One model call.'},
+    {l:'"How much for 6 cupcakes?"',c:1,m:2,s:[['r-user','<strong>Human:</strong> How much for 6 cupcakes?'],['r-assistant','<strong>AI → tool call:</strong> get_price(item="cupcake", qty=6)'],['r-system','<strong>Tool get_price:</strong> 6 x cupcake = Rs 480'],['r-assistant','<strong>AI:</strong> 6 cupcakes are Rs 480.']],n:'One tool call, two model calls: one to ask for the tool, one to answer.'},
+    {l:'"Open Sunday? And 2 chocolate cakes?"',c:2,m:2,s:[['r-user','<strong>Human:</strong> Are you open on Sunday? And how much for 2 chocolate cakes?'],['r-assistant','<strong>AI → tool calls:</strong> is_open(day="sunday") and get_price(item="chocolate cake", qty=2)'],['r-system','<strong>Tool is_open:</strong> Open 10 am to 6 pm on sunday.'],['r-system','<strong>Tool get_price:</strong> 2 x chocolate cake = Rs 1300'],['r-assistant','<strong>AI:</strong> Yes, we’re open 10 am to 6 pm on Sunday. 2 chocolate cakes are Rs 1,300.']],n:'Two tools, asked for in the same step, then one final answer. Models can request several tools at once.'}];
+  pick($('tr-o'),Q.map(function(q){return q.l;}),function(i){var q=Q[i];
+    $('tr-log').innerHTML=q.s.map(function(x){return '<div class="'+x[0]+' fresh">'+x[1]+'</div>';}).join('');
+    $('tr-calls').textContent=q.c;$('tr-rounds').textContent=q.m;$('tr-st').innerHTML=q.n;})[1].click();
+})();
+
+/* T5 rate limit */
+(function(){
+  if(!$('rl-one'))return;
+  var LIM=6,WIN=10000,stamps=[];
+  function now(){return Date.now();}
+  function live(){var t=now();stamps=stamps.filter(function(s){return t-s<WIN;});return stamps.length;}
+  function draw(){var n=live();$('rl-bar').style.width=Math.min(100,n/LIM*100)+'%';$('rl-bar').style.background=n>=LIM?'var(--danger)':'var(--accent)';
+    $('rl-st').innerHTML='Requests in the last 10 seconds: <strong>'+n+' / '+LIM+'</strong>'+(n>=LIM?' — limit reached; new requests get 429 until older ones expire.':'');}
+  function ask(q){var need=2+(q%2),ok=true,lines=[];
+    var others=$('rl-share').checked?3:0;for(var o=0;o<others;o++){if(live()<LIM)stamps.push(now());}
+    for(var i=0;i<need;i++){if(live()<LIM){stamps.push(now());}else{ok=false;break;}}
+    $('rl-log').insertAdjacentHTML('afterbegin','<div class="'+(ok?'r-assistant':'r-system')+' fresh">Question '+q+': '+(ok?'answered ('+need+' requests)':'<strong style="color:var(--danger)">429 Too Many Requests</strong> → max_retries waits and retries; if still blocked, try/except replies "please try again"')+(others?' · classmates used '+others+' requests on the same key':'')+'</div>');
+    draw();}
+  var qn=0;
+  $('rl-one').addEventListener('click',function(){ask(++qn);});
+  $('rl-five').addEventListener('click',function(){for(var i=0;i<5;i++)ask(++qn);});
+  setInterval(draw,500);draw();
+})();
+
+/* T6 pydantic */
+(function(){
+  if(!$('pv-go'))return;
+  var ITEMS=['plum cake','chocolate cake','cupcake'],PRICE={'plum cake':500,'chocolate cake':650,'cupcake':80};
+  function go(){
+    var nm=$('pv-name').value.trim(),it=$('pv-item').value,q=$('pv-qty').value.trim(),d=$('pv-date').value.trim(),e=$('pv-egg').value,errs=[];
+    if(!nm)errs.push('name\n  String should have at least 1 character');
+    if(ITEMS.indexOf(it)<0)errs.push("item\n  Input should be 'plum cake', 'chocolate cake' or 'cupcake' [input_value='"+it+"']");
+    var qi=null;if(!/^\s*-?\d+\s*$/.test(q))errs.push("qty\n  Input should be a valid integer, unable to parse string as an integer [input_value='"+q+"']");else{qi=parseInt(q,10);if(qi<1)errs.push('qty\n  Input should be greater than or equal to 1 [input_value='+qi+']');}
+    var eb=null;if(['true','yes'].indexOf(e)>=0)eb=true;else if(e==='false')eb=false;else errs.push("eggless\n  Input should be a valid boolean, unable to interpret input [input_value='"+e+"']");
+    if(errs.length){$('pv-out').innerHTML='<span style="color:#FF9B8F">ValidationError: '+errs.length+' validation error'+(errs.length>1?'s':'')+' for Order\n'+esc(errs.join('\n'))+'</span>';$('pv-st').innerHTML='<strong>Rejected.</strong> Nothing bad reaches your sheet. Inside <code>log_order</code>, this message goes back to the agent so it can ask the customer.';}
+    else{$('pv-out').textContent="Order(name='"+nm+"', item='"+it+"', qty="+qi+", date='"+d+"', eggless="+(eb?'True':'False')+")\n\norder.qty * MENU[order.item] = "+qi*PRICE[it];$('pv-st').innerHTML='<strong>Accepted.</strong> '+(q!==String(qi)||e==='yes'?'Pydantic also converted friendly input ("'+esc(q)+'", "'+e+'") into proper types. ':'')+'Every field now has the right type, ready for maths and saving.';}
+  }
+  $('pv-go').addEventListener('click',go);go();
+})();
+
+/* T7 sheet */
+(function(){
+  if(!$('gs-o'))return;
+  var O=[['Ravi','plum cake',2,'24 Dec','yes',1000],['Sravani','cupcake',6,'tomorrow','no',480],['Arjun','chocolate cake',1,'Saturday','yes',650]],rows=[];
+  pick($('gs-o'),O.map(function(o){return o[0]+': '+o[2]+' × '+o[1];}),function(i){rows.push(O[i]);draw(i);});
+  function draw(last){$('gs-body').innerHTML=rows.length?rows.map(function(r,i){return '<tr'+(i===rows.length-1&&last!==undefined?' style="background:var(--accent-soft)"':'')+'><td>'+(i+2)+'</td>'+r.map(function(c){return '<td>'+esc(c)+'</td>';}).join('')+'</tr>';}).join(''):'<tr><td>1</td><td colspan="6" class="note">(header row: name, item, qty, date, eggless, total)</td></tr>';
+    if(last!==undefined)$('gs-st').innerHTML='<code>ws.append_row('+esc(JSON.stringify(O[last]))+')</code> → added as row '+(rows.length+1)+'. The owner sees it on her phone straight away.';}
+  $('gs-clear').addEventListener('click',function(){rows=[];draw();$('gs-st').innerHTML='Click an order to run <code>ws.append_row(...)</code>.';$('gs-o').querySelectorAll('.opt').forEach(function(b){b.classList.remove('right');});});
+  draw();
+})();
+
+/* T8 end to end */
+(function(){
+  if(!$('e2-o'))return;
+  var M=[
+    {l:'Complete order',s:[
+      ['r-user','<strong>Human:</strong> hi im ravi, need 2 eggless chocolate cakes for 24 dec','The customer writes the way people write.'],
+      ['r-assistant','<strong>AI → tool call:</strong> get_price(item="chocolate cake", qty=2)','The rules say: never guess prices. It asks for get_price.'],
+      ['r-system','<strong>Tool get_price:</strong> 2 x chocolate cake = Rs 1300','Your code runs it.'],
+      ['r-assistant','<strong>AI → tool call:</strong> log_order(name="Ravi", item="chocolate cake", qty=2, date="24 Dec", eggless=true)','All four details are known, so the docstring’s condition is met.'],
+      ['r-system','<strong>Tool log_order:</strong> Saved: 2 x chocolate cake for Ravi on 24 Dec, Rs 1300.','Pydantic check passed → row appended to the Orders sheet.'],
+      ['r-assistant','<strong>AI:</strong> Done, Ravi! 2 eggless chocolate cakes for 24 Dec, Rs 1,300. See you then!','It reads the order back with the total. One message → one clean row.']]},
+    {l:'Missing the date',s:[
+      ['r-user','<strong>Human:</strong> 2 plum cakes please, im ravi','No pickup date.'],
+      ['r-assistant','<strong>AI:</strong> Happy to, Ravi! 2 plum cakes are Rs 1,000. Which date would you like to pick them up? (We need 24 hours’ notice.)','It doesn’t call log_order yet: the docstring says use it only when the date is known. (A real agent would call get_price first; skipped here.)'],
+      ['r-user','<strong>Human:</strong> 26 dec','Now the order is complete.'],
+      ['r-assistant','<strong>AI → tool call:</strong> log_order(name="Ravi", item="plum cake", qty=2, date="26 Dec", eggless=false)','Memory (history) gives it the earlier details.'],
+      ['r-system','<strong>Tool log_order:</strong> Saved: 2 x plum cake for Ravi on 26 Dec, Rs 1000.','Saved.'],
+      ['r-assistant','<strong>AI:</strong> Booked! 2 plum cakes for 26 Dec, Rs 1,000.','Ask first, then save.']]},
+    {l:'Item not on menu',s:[
+      ['r-user','<strong>Human:</strong> book 3 donuts for friday, name is Kavya','Donuts aren’t on the menu.'],
+      ['r-assistant','<strong>AI → tool call:</strong> log_order(name="Kavya", item="donut", qty=3, date="Friday", eggless=false)','Suppose the agent tries anyway.'],
+      ['r-system','<strong>Tool log_order:</strong> Could not save the order: item must be plum cake, chocolate cake or cupcake. Ask the customer to correct it.','Pydantic inside the tool rejects it. Nothing reaches the sheet.'],
+      ['r-assistant','<strong>AI:</strong> Sorry Kavya, we don’t make donuts. We have plum cake, chocolate cake and cupcakes. Would cupcakes work for Friday?','The clear error message lets the agent recover politely.']]}];
+  var mi=0;
+  var reset=stepper('e2-next','e2-reset','e2-log','e2-st',function(){return M[mi].s.map(function(x){return {r:x[0],t:x[1],s:x[2]};});},'Pick a message, then press <strong>Next step</strong>.');
+  pick($('e2-o'),M.map(function(m){return m.l;}),function(i){mi=i;reset();})[0].click();
+})();
+})();
+
+</script>
+<script>
+window.VSCENES={
+ v1:[
+  {show:['q'],cap:'A customer asks for today’s price, and to book two cakes.'},
+  {show:['q','a1','m'],hl:['m'],cap:'The model alone knows language, not the bakery’s current menu, and it can’t save anything.'},
+  {show:['q','a1','m','guess'],cap:'So it guesses a price, and nothing is booked. A friendly but useless answer.'},
+  {show:['q','a1','m','tools'],hl:['tools'],cap:'Now give it tools: get_price reads the real menu, log_order writes to the Orders sheet.'},
+  {show:['q','a1','m','tools','right'],hl:['right'],cap:'The answer uses the real price, and the order is actually saved. Tools turn talk into work.'}],
+ v2:[
+  {show:['cust','wait','kit','a1'],cap:'Think of the model as a waiter and your code as the kitchen.'},
+  {show:['cust','wait','kit','a1','ticket'],hl:['ticket'],cap:'The waiter doesn’t cook. He writes a ticket: a tool call with a name and arguments.'},
+  {show:['cust','wait','kit','a1','ticket'],mv:{ticket:'translate(260px,-80px)'},hl:['kit'],cap:'The ticket goes to the kitchen. Your code reads it and runs get_price.'},
+  {show:['cust','wait','kit','a1','dish'],mv:{ticket:'translate(260px,-80px)'},hl:['dish'],cap:'The kitchen sends back the dish: the result, added to the messages as a tool message.'},
+  {show:['cust','wait','kit','a1','dish'],mv:{ticket:'translate(260px,-80px)',dish:'translate(-260px,-70px)'},hl:['wait'],cap:'The waiter picks it up…'},
+  {show:['cust','wait','kit','a1','ans'],cap:'…and talks to the customer. The model asked; your code did the work.'}],
+ v3:[
+  {show:['q','m'],cap:'A customer asks about Sunday. The model has three tools to choose from, like three drawers.'},
+  {show:['q','m','ok'],hl:['d2'],cap:'With clear labels (get_price, is_open, log_order), it opens is_open straight away.'},
+  {show:['q','m'],txt:{t1:'tool1: does stuff',t2:'check: checks it',t3:'save: handles things'},cap:'Now the same tools with vague names and docstrings.'},
+  {show:['q','m','bad'],txt:{t1:'tool1: does stuff',t2:'check: checks it',t3:'save: handles things'},hl:['d1'],cap:'It opens the wrong drawer. The model didn’t get worse; the labels did. Write docstrings for the model.'}],
+ v4:[
+  {show:['line','s1'],hl:['s1'],cap:'Every agent run leaves a trace. It starts with the customer’s question.'},
+  {show:['line','s1','s2'],hl:['s2'],cap:'The model asks for two tools in one step: is_open and get_price.'},
+  {show:['line','s1','s2','s3'],hl:['s3'],cap:'Your code runs both and adds the results.'},
+  {show:['line','s1','s2','s3','s4'],hl:['s4'],cap:'The model writes one answer using both results. Reading this timeline shows exactly what happened, and what went wrong if it did.'}],
+ v5:[
+  {show:['gate'],cap:'Your API key has a gate that lets only so many requests through in a short time.'},
+  {show:['gate','c1','c2','c3','c4','c5','c6'],cap:'An agent sends several requests per question. Here come six.'},
+  {show:['gate','c1','c2','c3','c4','c5','c6'],mv:{c1:'translate(620px,0px)',c2:'translate(420px,0px)',c3:'translate(220px,0px)',c4:'translate(620px,0px)',c5:'translate(420px,0px)',c6:'translate(220px,0px)'},cap:'All six pass.'},
+  {show:['gate','c1','c2','c3','c4','c5','c6','x'],mv:{c1:'translate(620px,0px)',c2:'translate(420px,0px)',c3:'translate(220px,0px)',c4:'translate(620px,0px)',c5:'translate(420px,0px)',c6:'translate(220px,0px)'},hl:['x'],cap:'The seventh is stopped with error 429: too many requests. Wait.'},
+  {show:['gate','x','retry'],cap:'After a short wait, max_retries tries again and it goes through. Own keys and small tests keep you under the limit.'}],
+ v6:[
+  {show:['form','f1','f2','f3','f4','f5'],cap:'A Pydantic class is a form: each field has a name and a type.'},
+  {show:['form','f1','f2','f3','f4','f5'],hl:['f1','f2'],cap:'Name is text, fine. Item must be one of the menu items, fine.'},
+  {show:['form','f1','f2','f3','f4','f5','err'],hl:['f3'],cap:'qty says "two": not a whole number. Pydantic rejects it with a clear error.'},
+  {show:['form','f1','f2','f3','f4','f5'],txt:{v3:'2'},hl:['f3'],cap:'Fix it to 2 (Pydantic would also accept "2" and convert it).'},
+  {show:['form','f1','f2','f3','f4','f5','ok'],txt:{v3:'2'},hl:['ok'],cap:'Every field passes, and you get a real Order object with proper types, ready to save and calculate.'}],
+ v7:[
+  {show:['sheet','code'],cap:'The owner’s Orders sheet has six columns.'},
+  {show:['sheet','code','r1'],hl:['r1'],cap:'append_row adds Ravi’s order as one row at the bottom.'},
+  {show:['sheet','code','r1','r2'],hl:['r2'],cap:'Then Sravani’s…'},
+  {show:['sheet','code','r1','r2','r3'],hl:['r3'],cap:'…then Arjun’s. Same columns, same order, every time.'},
+  {show:['sheet','code','r1','r2','r3','phone'],hl:['phone'],cap:'And the owner sees each order on her phone the moment it’s saved. No more copying from chat into a notebook.'}],
+ v8:[
+  {show:['msg'],cap:'A customer sends a messy order message.'},
+  {show:['msg','a1','ag'],hl:['ag'],cap:'The agent understands it, checks the price with get_price, and sees all details are there.'},
+  {show:['msg','a1','ag','a2','tool'],hl:['tool'],cap:'It calls log_order with the name, item, quantity, date and eggless.'},
+  {show:['msg','a1','ag','a2','tool','a3','pyd'],hl:['pyd'],cap:'Inside the tool, Pydantic checks every field again.'},
+  {show:['msg','a1','ag','a2','tool','a3','pyd','a4','row'],hl:['row'],cap:'A clean row lands in the sheet.'},
+  {show:['msg','a1','ag','a2','tool','a3','pyd','a4','row','reply'],cap:'And the customer gets a confirmation with the total. From chat to sheet, with no typing by the owner.'}]
+};
+
+/* ---------- Animated videos ---------- */
+(function(){
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var S=window.VSCENES;
+function fmt(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+('0'+s%60).slice(-2);}
+document.querySelectorAll('.vid').forEach(function(box){
+  var id=box.getAttribute('data-vid'),sc=S[id];if(!sc)return;
+  var svg=box.querySelector('svg'),cap=box.querySelector('.vid-cap'),btn=box.querySelector('.vid-play'),prog=box.querySelector('.vid-prog'),bar=prog.firstElementChild,tm=box.querySelector('.vid-time'),voice=box.querySelector('.vid-voice');
+  var dur=sc.map(function(s){return Math.max(3.2,s.cap.length/16);}),total=dur.reduce(function(a,b){return a+b;},0);
+  var starts=[],acc=0;dur.forEach(function(d){starts.push(acc);acc+=d;});
+  var els=svg.querySelectorAll('[id^="'+id+'-"]'),orig={};
+  els.forEach(function(e){if(e.tagName==='text')orig[e.id]=e.textContent;});
+  function el(k){var p=k.split('>');var e=svg.querySelector('#'+id+'-'+p[0]);return p[1]&&e?e.querySelector(p[1]):e;}
+  var cur=-1,t=0,playing=false,last=0,raf=null;
+  function apply(i){
+    if(i===cur)return;cur=i;var s=sc[i];
+    svg.querySelectorAll('.ve').forEach(function(e){var k=e.id.slice(id.length+1);e.classList.toggle('show',s.show.indexOf(k)>=0);});
+    svg.querySelectorAll('.on').forEach(function(e){e.classList.remove('on');});
+    (s.hl||[]).forEach(function(k){var e=el(k);if(!e)return;var r=e.tagName==='rect'?e:e.querySelector('rect');if(r)r.classList.add('on');});
+    svg.querySelectorAll('[data-t0]').forEach(function(e){e.style.transform=e.getAttribute('data-t0');});
+    Object.keys(orig).forEach(function(k){var e=svg.querySelector('#'+k);if(e)e.textContent=orig[k];});
+    for(var j=0;j<=i;j++){var m=sc[j].mv||{},x=sc[j].txt||{};
+      Object.keys(m).forEach(function(k){var e=el(k);if(e)e.style.transform=m[k];});
+      Object.keys(x).forEach(function(k){var e=el(k);if(e)e.textContent=x[k];});}
+    cap.textContent=s.cap;
+    if(voice.checked&&playing&&window.speechSynthesis){try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(s.cap);u.lang='en-IN';u.rate=1.02;speechSynthesis.speak(u);}catch(e){}}
+  }
+  function idx(tt){for(var i=starts.length-1;i>=0;i--){if(tt>=starts[i])return i;}return 0;}
+  function draw(){bar.style.width=(t/total*100)+'%';tm.textContent=fmt(t)+' / '+fmt(total);}
+  function frame(now){if(!playing)return;t+=(now-last)/1000;last=now;
+    if(t>=total){t=total;draw();pause();btn.textContent='Replay';return;}
+    apply(idx(t));draw();raf=requestAnimationFrame(frame);}
+  function play(){if(t>=total){t=0;cur=-1;}playing=true;btn.textContent='Pause';last=performance.now();apply(idx(t));raf=requestAnimationFrame(frame);}
+  function pause(){playing=false;if(raf)cancelAnimationFrame(raf);if(btn.textContent==='Pause')btn.textContent='Play';try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
+  btn.addEventListener('click',function(){playing?pause():play();});
+  prog.addEventListener('click',function(ev){var r=prog.getBoundingClientRect();t=Math.min(total-0.01,Math.max(0,(ev.clientX-r.left)/r.width*total));cur=-1;apply(idx(t));draw();if(!playing)btn.textContent='Play';});
+  voice.addEventListener('change',function(){if(!voice.checked){try{speechSynthesis.cancel();}catch(e){}}});
+  draw();
+});
+})();
+
+/* ---------- MCQ quiz ---------- */
+(function(){
+  var all=document.querySelectorAll('.mcq'),right=0;
+  var sn=document.getElementById('sc-n'),sb=document.getElementById('sc-bar');
+  document.getElementById('sc-t').textContent=all.length;
+  function upd(){sn.textContent=right;sb.style.width=(right/all.length*100)+'%';}
+  all.forEach(function(q){
+    var ans=q.getAttribute('data-ans'),bs=q.querySelectorAll('.choices button'),why=q.querySelector('.why'),scored=false,base=why.innerHTML;
+    bs.forEach(function(b){b.addEventListener('click',function(){
+      var k=b.getAttribute('data-k'),ok=k===ans;
+      bs.forEach(function(x){x.disabled=true;x.classList.toggle('right',x.getAttribute('data-k')===ans);});
+      if(!ok)b.classList.add('wrong');
+      why.innerHTML=(ok?'<strong>Correct.</strong> ':'<strong>Not quite.</strong> ')+base;
+      q.classList.add('done');
+      if(ok&&!scored){scored=true;right++;upd();}
+    });});
+    q.querySelector('.retry').addEventListener('click',function(){bs.forEach(function(x){x.disabled=false;x.classList.remove('right','wrong');});q.classList.remove('done');});
+  });
+  upd();
+})();
+
+</script>
+<script>
+// Tiny Python highlighter: comments, strings, keywords, numbers.
+(function(){
+  var KW=/\b(import|from|def|return|class|if|else|elif|for|in|while|try|except|as|with|None|True|False|print|lambda|is|not|and|or|raise|self)\b/;
+  document.querySelectorAll('pre code.py').forEach(function(el){
+    var src=el.textContent, out='', re=/(#[^\n]*)|("""[\s\S]*?"""|f?"[^"\n]*"|f?'[^'\n]*')|\b(import|from|def|return|class|if|else|elif|for|in|while|try|except|as|with|None|True|False|print|lambda|is|not|and|or|raise|self)\b|\b(\d+(?:\.\d+)?)\b/g, last=0, m;
+    function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    while((m=re.exec(src))){
+      out+=esc(src.slice(last,m.index));
+      var cls=m[1]?'c':m[2]?'s':m[3]?'k':'n';
+      out+='<span class="'+cls+'">'+esc(m[0])+'</span>';
+      last=re.lastIndex;
+    }
+    out+=esc(src.slice(last));
+    el.innerHTML=out;
+  });
+})();
+</script>
+</body>
+</html>
