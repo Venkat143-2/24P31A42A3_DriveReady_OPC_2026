@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 5 · Memory and RAG: an agent that remembers and looks things up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: study notes — sticky lesson index on the left, one readable column; coloured stripes mark analogies (amber), design lens (teal) and warnings (red). */
+:root{
+  --bg:#F5F7F8;
+  --paper:#FFFFFF;
+  --ink:#16222B;
+  --muted:#5B6B76;
+  --line:#D7DFE3;
+  --accent:#0E7C6B;          /* teal: design lens, key path */
+  --accent-soft:#E2F3EF;
+  --warm:#B86A00;            /* amber: analogies */
+  --warm-soft:#FBF0DF;
+  --danger:#B3261E;
+  --danger-soft:#FBE7E5;
+  --code-bg:#0F1A21;
+  --code-ink:#DCE6EA;
+  --panel:#F0F4F5;
+  --font-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151A; --paper:#141E25; --ink:#E4ECEF; --muted:#9AAAB3; --line:#2A3943;
+    --accent:#4CC5AE; --accent-soft:#16332E; --warm:#E7A64A; --warm-soft:#33270F;
+    --danger:#F08B83; --danger-soft:#3A1C1A; --code-bg:#0A1116; --code-ink:#DCE6EA; --panel:#1B2830;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151A; --paper:#141E25; --ink:#E4ECEF; --muted:#9AAAB3; --line:#2A3943;
+  --accent:#4CC5AE; --accent-soft:#16332E; --warm:#E7A64A; --warm-soft:#33270F;
+  --danger:#F08B83; --danger-soft:#3A1C1A; --code-bg:#0A1116; --code-ink:#DCE6EA; --panel:#1B2830;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:17px;line-height:1.62}
+a{color:var(--accent)}
+a:focus-visible,summary:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+.shell{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;max-width:1180px;margin:0 auto;padding:32px 24px 80px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;font-size:14.5px;padding-right:6px}
+nav.toc .tt{font-family:var(--font-display);font-weight:800;font-size:15px;letter-spacing:.02em;margin:0 0 10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--ink);text-decoration:none;border-left:3px solid transparent}
+nav.toc a:hover{background:var(--panel);border-left-color:var(--accent)}
+nav.toc .sub a{padding-left:24px;color:var(--muted);font-size:13.5px}
+main{min-width:0}
+header.hero{padding:8px 0 28px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.eyebrow{font-family:var(--font-mono);font-size:13px;color:var(--accent);letter-spacing:.04em;text-transform:uppercase}
+h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;line-height:1.2}
+h1{font-size:42px;font-weight:800;margin:6px 0 12px}
+h2{font-size:30px;font-weight:800;margin:56px 0 10px;padding-top:12px}
+h3{font-size:22px;font-weight:600;margin:34px 0 8px}
+h4{font-size:18px;font-weight:600;margin:22px 0 6px}
+.lede{font-size:19px;color:var(--muted);max-width:68ch;margin:0}
+p,li{max-width:70ch}
+.lessonno{display:inline-block;font-family:var(--font-mono);font-size:14px;color:var(--paper);background:var(--accent);border-radius:6px;padding:2px 9px;margin-right:10px;vertical-align:middle;position:relative;top:-3px}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:18px 0 0;padding:0;list-style:none}
+.map li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:15px}
+.map li b{font-family:var(--font-mono);color:var(--accent);margin-right:6px}
+.box{border-radius:10px;padding:14px 18px;margin:18px 0;border-left:5px solid;background:var(--paper)}
+.box > :first-child{margin-top:0}
+.box > :last-child{margin-bottom:0}
+.box .tag{display:block;font-family:var(--font-mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-bottom:4px}
+.analogy{border-color:var(--warm);background:var(--warm-soft)}
+.analogy .tag{color:var(--warm)}
+.lens{border-color:var(--accent);background:var(--accent-soft)}
+.lens .tag{color:var(--accent)}
+.warn{border-color:var(--danger);background:var(--danger-soft)}
+.warn .tag{color:var(--danger)}
+.remember{border-color:var(--ink);background:var(--paper);border-left-width:5px;box-shadow:0 1px 0 var(--line)}
+.remember ul{margin:4px 0 0;padding-left:20px}
+.yours{display:inline-block;font-family:var(--font-mono);font-size:11.5px;background:var(--warm);color:var(--paper);border-radius:4px;padding:1px 7px;margin-left:6px;vertical-align:middle;text-transform:none;letter-spacing:0}
+.tablewrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:15.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-family:var(--font-display);font-weight:600;background:var(--panel);font-size:15px}
+tr:last-child td{border-bottom:0}
+td code,p code,li code,th code{font-family:var(--font-mono);font-size:.86em;background:var(--panel);padding:1px 5px;border-radius:4px;word-break:break-word}
+pre{background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px 18px;overflow-x:auto;font-family:var(--font-mono);font-size:14px;line-height:1.55;margin:16px 0}
+pre code{font-family:inherit;background:none;padding:0}
+.k{color:#7FC8FF}.s{color:#B5E48C}.c{color:#7C8F99;font-style:italic}.n{color:#F5B971}
+figure{margin:22px 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px 16px 10px;overflow-x:auto}
+figcaption{font-size:14.5px;color:var(--muted);margin-top:8px;max-width:none}
+svg.dg{display:block;width:100%;max-width:100%;height:auto;min-width:560px;color:var(--ink)}
+svg.dg text{fill:currentColor;font-family:var(--font-body);font-size:13px}
+svg.dg .t-s{font-size:11.5px;fill:var(--muted)}
+svg.dg .t-b{font-weight:700}
+svg.dg .t-m{font-family:var(--font-mono);font-size:12px}
+svg.dg .b{fill:var(--panel);stroke:currentColor;stroke-width:1.2}
+svg.dg .ba{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.8}
+svg.dg .bw{fill:var(--warm-soft);stroke:var(--warm);stroke-width:1.5}
+svg.dg .bd{fill:var(--danger-soft);stroke:var(--danger);stroke-width:1.5}
+svg.dg .ln{stroke:currentColor;stroke-width:1.4;fill:none}
+svg.dg .lna{stroke:var(--accent);stroke-width:2;fill:none}
+svg.dg .dash{stroke:var(--muted);stroke-width:1.2;fill:none;stroke-dasharray:5 4}
+svg.dg .bar{fill:var(--accent)}
+svg.dg .bar2{fill:var(--warm)}
+svg.dg .ah{fill:currentColor}
+svg.dg .aha{fill:var(--accent)}
+details{background:var(--paper);border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:0 16px}
+summary{cursor:pointer;font-weight:700;padding:12px 0}
+details[open]{padding-bottom:12px}
+.qa dt{font-weight:700;margin-top:12px}
+.qa dd{margin:4px 0 0 0;color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.card h4{margin-top:0}
+/* ---------- interactive widgets ---------- */
+.sim{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:22px 0;overflow:hidden}
+.sim-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.sim-head .ttl{font-family:var(--font-display);font-weight:600;font-size:16px}
+.sim-head .live{font-family:var(--font-mono);font-size:11.5px;color:var(--paper);background:var(--accent);border-radius:4px;padding:2px 7px;letter-spacing:.05em;text-transform:uppercase}
+.sim-body{padding:14px 16px 16px}
+.sim label{font-weight:700;font-size:14.5px}
+.sim textarea,.sim input[type=text]{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);resize:vertical}
+.sim textarea:focus,.sim input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.btn{font:inherit;font-size:14.5px;font-weight:700;border:1px solid var(--accent);background:var(--accent);color:var(--paper);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:12px 0;min-height:34px;font-family:var(--font-mono);font-size:14px}
+.chip{padding:3px 6px;border-radius:5px;white-space:pre;border:1px solid transparent}
+.chip.c0{background:#DDEFFC;color:#11344F}.chip.c1{background:#FBE3C8;color:#4A2A00}.chip.c2{background:#DDF3E4;color:#123D22}.chip.c3{background:#F3DDF3;color:#3F1440}.chip.c4{background:#E7E3FB;color:#231A55}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.stat b{display:block;font-family:var(--font-display);font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.note{font-size:13.5px;color:var(--muted);margin:8px 0 0}
+.tbar{display:grid;grid-template-columns:96px 1fr 52px;gap:8px;align-items:center;margin:5px 0;font-size:14.5px}
+.tbar .track{background:var(--panel);border-radius:4px;height:20px;overflow:hidden}
+.tbar .fill{height:100%;background:var(--accent);border-radius:4px;transition:width .35s ease}
+.tbar .pct{font-family:var(--font-mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.tbar.hit .fill{background:var(--warm)}
+input[type=range]{width:220px;accent-color:var(--accent)}
+.sentence{font-size:18px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px dashed var(--line);min-height:46px}
+.sentence .new{background:var(--warm-soft);color:var(--warm);font-weight:700;border-radius:4px;padding:0 3px}
+.status{font-size:15px;padding:8px 12px;border-radius:8px;background:var(--accent-soft);border-left:4px solid var(--accent);margin-top:10px;min-height:42px}
+.opts{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.opt{font:inherit;font-size:15px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.opt.right{background:var(--accent-soft);border-color:var(--accent)}
+.opt.wrong{background:var(--danger-soft);border-color:var(--danger)}
+.toggles{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 18px;margin:8px 0}
+.toggles label{font-weight:400;display:flex;gap:8px;align-items:flex-start}
+.result{font-family:var(--font-mono);font-size:13.5px;background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:10px 12px;white-space:pre-wrap;margin-top:8px}
+.cw{display:flex;height:46px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin:10px 0;background:var(--bg)}
+.cw div{display:flex;align-items:center;justify-content:center;font-size:12.5px;white-space:nowrap;overflow:hidden;transition:width .3s ease}
+.cw .sys{background:var(--accent-soft)}.cw .his{background:var(--panel)}.cw .doc{background:var(--warm-soft)}.cw .ans{background:var(--accent);color:var(--paper)}.cw .over{background:var(--danger);color:#fff}
+.hist{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.hist div{font-size:14px;padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
+.hist .r-system{border-left:4px solid var(--ink)}.hist .r-user{border-left:4px solid var(--accent)}.hist .r-assistant{border-left:4px solid var(--warm)}
+.hist .fresh{animation:pop .5s ease}
+@keyframes pop{from{transform:translateY(-6px);opacity:.2}to{transform:none;opacity:1}}
+/* svg highlight + flowing arrows */
+svg.dg .b,svg.dg .ba,svg.dg .bw,svg.dg .bd{transition:fill .25s ease,stroke .25s ease,stroke-width .25s ease}
+svg.dg .on{fill:var(--warm-soft)!important;stroke:var(--warm)!important;stroke-width:3!important}
+svg.dg.flow .ln,svg.dg.flow .lna{stroke-dasharray:7 5;animation:dash 1.1s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-24}}
+@media (prefers-reduced-motion: reduce){
+  svg.dg.flow .ln,svg.dg.flow .lna{animation:none;stroke-dasharray:none}
+  .tbar .fill,.cw div{transition:none}
+  .hist .fresh{animation:none}
+}
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:14.5px}
+@media (max-width: 900px){
+  .shell{grid-template-columns:1fr;gap:10px;padding:20px 16px 60px}
+  nav.toc{position:static;max-height:none;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--paper)}
+  nav.toc .sub{display:none}
+  h1{font-size:32px} h2{font-size:25px}
+  .two{grid-template-columns:1fr}
+}
+/* ---------- Day 1 tutorial additions ---------- */
+:root{--info:#1F5FA8;--info-soft:#E7F0FA}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--info:#7FB2EE;--info-soft:#15263A}}
+:root[data-theme="dark"]{--info:#7FB2EE;--info-soft:#15263A}
+.real{border-color:var(--info);background:var(--info-soft)}
+.real .tag{color:var(--info)}
+.oneline{font-size:19px;font-family:var(--font-display);font-weight:600;border-left:5px solid var(--accent);padding:4px 0 4px 14px;margin:6px 0 16px;max-width:none}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+.meta span{font-family:var(--font-mono);font-size:12.5px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--muted)}
+.meta b{color:var(--ink)}
+/* video player */
+.vid{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:22px 0;overflow:hidden}
+.vid-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.vid-head .ttl{font-family:var(--font-display);font-weight:600;font-size:16px}
+.vid-head .live{font-family:var(--font-mono);font-size:11.5px;color:var(--paper);background:var(--warm);border-radius:4px;padding:2px 7px;letter-spacing:.05em;text-transform:uppercase}
+.vid-stage{padding:14px 14px 4px;overflow-x:auto;position:relative}
+.vid-stage svg.dg{min-width:600px}
+.vid-cap{min-height:56px;margin:4px 14px 10px;padding:10px 14px;border-radius:8px;background:var(--bg);border:1px dashed var(--line);font-size:16.5px;max-width:none}
+.vid-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.vid-play{min-width:92px}
+.vid-prog{flex:1;min-width:140px;height:8px;background:var(--line);border-radius:4px;cursor:pointer;position:relative}
+.vid-prog div{height:100%;width:0;background:var(--warm);border-radius:4px}
+.vid-time{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.vid-bar label{font-size:14px;display:flex;gap:6px;align-items:center}
+svg.dg .ve{opacity:0;transition:opacity .55s ease,transform .9s cubic-bezier(.4,.1,.2,1)}
+svg.dg .ve.show{opacity:1}
+svg.dg .grow{transform-box:fill-box;transform-origin:0 50%;transition:transform .9s cubic-bezier(.4,.1,.2,1)}
+svg.dg .spin{transform-box:view-box;transition:transform .9s cubic-bezier(.4,.1,.2,1)}
+svg.dg .big{font-size:24px;font-family:var(--font-mono)}
+svg.dg .t-l{font-size:15px}
+svg.dg .t-red{fill:var(--danger);font-weight:700}
+svg.dg .t-ok{fill:var(--accent);font-weight:700}
+/* quiz */
+.quiz{margin:26px 0 8px;border:1px solid var(--line);border-radius:12px;background:var(--paper);overflow:hidden}
+.quiz-head{padding:10px 16px;background:var(--accent-soft);border-bottom:1px solid var(--line);font-family:var(--font-display);font-weight:600;display:flex;justify-content:space-between;gap:10px}
+.quiz-head span{font-family:var(--font-mono);font-size:12.5px;color:var(--accent);font-weight:600}
+.mcq{padding:14px 16px;border-bottom:1px solid var(--line)}
+.mcq:last-child{border-bottom:0}
+.mcq .q{font-weight:700;margin:0 0 8px;max-width:none}
+.mcq .choices{display:grid;gap:6px}
+.mcq .choices button{font:inherit;font-size:15.5px;text-align:left;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+.mcq .choices button b{font-family:var(--font-mono);color:var(--muted);min-width:1.2em}
+.mcq .choices button:hover:not(:disabled){border-color:var(--accent)}
+.mcq .choices button.right{background:var(--accent-soft);border-color:var(--accent)}
+.mcq .choices button.wrong{background:var(--danger-soft);border-color:var(--danger)}
+.mcq .choices button:disabled{cursor:default}
+.mcq .why{display:none;margin-top:10px;font-size:15px;padding:8px 12px;border-radius:8px;background:var(--panel);max-width:none}
+.mcq.done .why{display:block}
+.mcq .retry{display:none;margin-top:8px}
+.mcq.done .retry{display:inline-block}
+.score{position:sticky;bottom:12px;margin-top:14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.score b{font-family:var(--font-display);font-size:22px;color:var(--accent);font-variant-numeric:tabular-nums}
+.score .track{height:6px;background:var(--panel);border-radius:3px;margin-top:6px;overflow:hidden}
+.score .track div{height:100%;width:0;background:var(--accent);transition:width .4s ease}
+.agenda{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:18px 0 0;padding:0;list-style:none;counter-reset:ag}
+.agenda li{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:15px}
+.agenda li a{text-decoration:none;color:var(--ink)}
+.agenda li b{font-family:var(--font-mono);color:var(--accent);margin-right:6px}
+.agenda li small{display:block;color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion: reduce){svg.dg .ve,svg.dg .grow,svg.dg .spin{transition:opacity .2s linear}}
+.bar-wrap{height:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:10px 0}
+.bar-fill{height:100%;width:0;background:var(--accent);transition:width .3s ease,background .3s ease}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<nav class="toc" aria-label="Topics">
+  <p class="tt">Day 5 tutorial</p>
+  <ol>
+    <li><a href="#start">Today at a glance</a></li>
+    <li><a href="#t1">1 · Three kinds of memory</a></li>
+    <li><a href="#t2">2 · Conversation memory: threads</a></li>
+    <li><a href="#t3">3 · Why not put it all in the prompt?</a></li>
+    <li><a href="#t4">4 · Embeddings</a></li>
+    <li><a href="#t5">5 · Vector database: ChromaDB</a></li>
+    <li><a href="#t6">6 · Chunking</a></li>
+    <li><a href="#t7">7 · RAG: retrieve, then answer</a></li>
+    <li><a href="#t8">8 · Single-agent sign-off</a></li>
+    <li><a href="#build">Today's build + your 30%</a></li>
+    <li><a href="#wrap">Summary</a></li>
+  </ol>
+  <div class="score" id="score" aria-live="polite">Quiz score<br><b id="sc-n">0</b> / <span id="sc-t">16</span> correct<div class="track"><div id="sc-bar"></div></div></div>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">Ai Agents Workshop · Level 2 Single agent · Day 5 (session 3 of 3)</div>
+  <h1>Memory and RAG: an agent that remembers and looks things up</h1>
+  <p class="lede">Today the Sweet Crumbs agent learns two things. It <strong>remembers each customer's conversation</strong> on its own, and it <strong>searches the bakery's policies</strong> instead of carrying them all in the prompt. That second skill, called RAG, is how real assistants answer from company documents without making things up. By the end of today, your single agent is complete.</p>
+  <div class="meta"><span><b>2 hours</b> · 1 session</span><span>Trainer <b>70%</b> · Students <b>30%</b></span><span>Runs in <b>Google Colab</b></span><span>Case study: <b>Sweet Crumbs Home Bakery</b></span></div>
+</header>
+
+<section id="start">
+  <h2>Today at a glance</h2>
+  <p>Topics 1–2 are about <strong>remembering the conversation</strong>. Topics 3–7 are about <strong>finding the right facts</strong> (RAG). Topic 8 puts everything from Days 3–5 together and checks that each student's single agent is complete.</p>
+  <ol class="agenda">
+    <li><a href="#t1"><b>01</b>Three kinds of memory<small>Chat, customer, knowledge · 10 min</small></a></li>
+    <li><a href="#t2"><b>02</b>Conversation memory: threads<small>checkpointer + thread_id · 15 min</small></a></li>
+    <li><a href="#t3"><b>03</b>Why not put it all in the prompt?<small>Cost and focus · 10 min</small></a></li>
+    <li><a href="#t4"><b>04</b>Embeddings<small>Meaning as numbers · 15 min</small></a></li>
+    <li><a href="#t5"><b>05</b>Vector database: ChromaDB<small>Search by meaning · 15 min</small></a></li>
+    <li><a href="#t6"><b>06</b>Chunking<small>Cut documents into the right pieces · 10 min</small></a></li>
+    <li><a href="#t7"><b>07</b>RAG: retrieve, then answer<small>The search_faq tool · 15 min</small></a></li>
+    <li><a href="#t8"><b>08</b>Single-agent sign-off<small>Everything from Days 3–5 · 10 min</small></a></li>
+  </ol>
+  <div class="box real"><span class="tag">Where we are in the case study</span>
+    <p>After Day 4 the agent can check prices and hours and save orders. But customers also ask about <strong>delivery, payment, cancellations, photo cakes and allergies</strong>, and they expect the bot to remember what they said a minute ago. Today we add both. Tomorrow (Day 6) we start Level 3: several agents working together.</p>
+  </div>
+</section>
+
+<!-- ============ T1 ============ -->
+<section id="t1">
+  <h2><span class="lessonno">01</span>Three kinds of memory</h2>
+  <p class="oneline">An agent can remember three different things: this conversation, facts about a customer, and the business's documents.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Kind</th><th>What it holds</th><th>How long</th><th>Sweet Crumbs example</th><th>We build it</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Conversation memory</strong> (short-term)</td><td>The messages in this chat</td><td>One conversation</td><td>"Ravi asked for 2 plum cakes a minute ago"</td><td>Today (topic 2)</td></tr>
+      <tr><td><strong>Customer memory</strong> (long-term)</td><td>Facts saved across chats</td><td>Weeks or months</td><td>"Ravi always orders eggless"</td><td>Idea only today; saved in a sheet later</td></tr>
+      <tr><td><strong>Knowledge</strong></td><td>The business's documents</td><td>Until the documents change</td><td>"Delivery is free above Rs 1,000"</td><td>Today (topics 3–7, RAG)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="sim" id="sim-mk">
+    <div class="sim-head"><span class="ttl">Which kind of memory is this?</span><span class="live">Live</span></div>
+    <div class="sim-body"><div id="mk-list"></div><div class="status" id="mk-st">Choose for each item.</div></div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>A good support agent at a phone company uses all three: they remember what you said earlier in the call, they can see your account history, and they look up the company's policy document before promising anything.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A shopkeeper's <strong>notepad</strong> during a phone call (conversation), the <strong>customer register</strong> (customer memory), and the <strong>policy file</strong> on the shelf (knowledge).</p>
+  </div>
+  <div class="vid" data-vid="v1">
+    <div class="vid-head"><span class="ttl">Watch: three kinds of memory</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 256" role="img" aria-label="Animation: a notepad (conversation), a customer register (customer memory) and a policy file (knowledge) connect to the agent."><defs><marker id="mv1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v1-ag" class="ve" ><rect x="290" y="100" width="180" height="60" rx="8" class="ba"/><text x="380.0" y="126.0" text-anchor="middle" class="t-b">Agent</text><text x="380.0" y="144.0" text-anchor="middle" class="t-s">Sweet Crumbs</text></g><g id="v1-note" class="ve" ><rect x="20" y="20" width="220" height="64" rx="8" class="bw"/><text x="130.0" y="48.0" text-anchor="middle" class="t-b">Notepad</text><text x="130.0" y="66.0" text-anchor="middle" class="t-s">"2 plum cakes, eggless"</text></g><g id="v1-reg" class="ve" ><rect x="20" y="176" width="220" height="64" rx="8" class="bw"/><text x="130.0" y="204.0" text-anchor="middle" class="t-b">Customer register</text><text x="130.0" y="222.0" text-anchor="middle" class="t-s">"Ravi: always eggless"</text></g><g id="v1-pol" class="ve" ><rect x="520" y="100" width="220" height="64" rx="8" class="bw"/><text x="630.0" y="128.0" text-anchor="middle" class="t-b">Policy file</text><text x="630.0" y="146.0" text-anchor="middle" class="t-s">"free delivery > Rs 1,000"</text></g><g id="v1-c1" class="ve"><path class="ln" d="M240 52 H265 V115 H288" marker-end="url(#mv1)"/><text x="248" y="40" class="t-s">conversation</text></g><g id="v1-c2" class="ve"><path class="ln" d="M240 208 H265 V145 H288" marker-end="url(#mv1)"/><text x="248" y="232" class="t-s">customer</text></g><g id="v1-c3" class="ve"><line class="ln" x1="520" y1="130" x2="472" y2="130" marker-end="url(#mv1)"/><text x="480" y="120" class="t-s">knowledge</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Conversation = this chat. Customer = facts across chats. Knowledge = documents.</li><li>Each needs a different tool: threads, a database or sheet, and RAG.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="c"><p class="q">1. "Photo cakes need 48 hours' notice" is which kind of memory?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Conversation memory</button>
+      <button type="button" data-k="b"><b>B</b>Customer memory</button>
+      <button type="button" data-k="c"><b>C</b>Knowledge</button>
+      <button type="button" data-k="d"><b>D</b>None; the model already knows it</button></div>
+      <p class="why">It's a business policy that applies to everyone: knowledge, kept in documents.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="b"><p class="q">2. "Sravani is allergic to nuts", remembered next month, is…</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Conversation memory</button>
+      <button type="button" data-k="b"><b>B</b>Customer (long-term) memory</button>
+      <button type="button" data-k="c"><b>C</b>Knowledge</button>
+      <button type="button" data-k="d"><b>D</b>The system prompt</button></div>
+      <p class="why">It's about one customer and must last across conversations: long-term memory.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T2 ============ -->
+<section id="t2">
+  <h2><span class="lessonno">02</span>Conversation memory: checkpointer and thread_id</h2>
+  <p class="oneline">Instead of keeping a history list yourself, give the agent a <strong>checkpointer</strong>. It saves each conversation under a <strong>thread_id</strong>, one per customer chat.</p>
+  <p>On Days 2 and 4 you kept <code>history</code> in a variable and passed it back every time. That works for one customer. With many customers chatting at once, you need one separate history for each. LangChain does this for you: pass a checkpointer when creating the agent, and a <code>thread_id</code> with every message.</p>
+<pre><code class="py">from langgraph.checkpoint.memory import InMemorySaver
+
+agent = create_agent(model=llm, tools=[get_price, is_open, log_order],
+                     system_prompt=SYSTEM, checkpointer=InMemorySaver())
+
+def chat(thread_id: str, text: str) -> str:
+    config = {"configurable": {"thread_id": thread_id}}
+    result = agent.invoke({"messages": [{"role": "user", "content": text}]}, config)
+    return result["messages"][-1].content
+
+chat("ravi", "Hi, I'm Ravi. I want 2 plum cakes.")
+chat("sravani", "Hello! Do you make cupcakes?")
+chat("ravi", "Make them eggless please.")      # remembers: the plum cakes</code></pre>
+  <p>Now you send only the <strong>new</strong> message. The checkpointer finds that thread's earlier messages and adds them. <code>InMemorySaver</code> keeps them in Colab's memory, so they are lost when the runtime restarts; in Week 2 we can save them to a file or database.</p>
+  <div class="sim" id="sim-th">
+    <div class="sim-head"><span class="ttl">Two customers, two threads</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="row"><label for="th-id">thread_id</label><select id="th-id"><option value="ravi">ravi</option><option value="sravani">sravani</option></select>
+        <input type="text" id="th-in" aria-label="Message" style="flex:1;min-width:200px" value="Hi, I'm Ravi. I want 2 plum cakes."><button class="btn" type="button" id="th-send">Send</button><button class="btn ghost" type="button" id="th-reset">Reset</button></div>
+      <div class="opts" id="th-sug" role="group" aria-label="Suggested messages"></div>
+      <div class="two">
+        <div><p class="note" style="margin:0 0 2px">Thread: ravi</p><div class="hist" id="th-ravi"></div></div>
+        <div><p class="note" style="margin:0 0 2px">Thread: sravani</p><div class="hist" id="th-sravani"></div></div>
+      </div>
+      <div class="status" id="th-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>WhatsApp Business shows each customer's chat separately, and an agent replying in one chat never mixes up another customer's order. A <code>thread_id</code> is the same idea: one per conversation. In Week 2 the Telegram chat ID becomes the thread_id.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p><strong>Email threads</strong>: every reply in a thread sits with the earlier ones, and two different threads never get mixed, even with the same subject.</p>
+  </div>
+  <div class="vid" data-vid="v2">
+    <div class="vid-head"><span class="ttl">Watch: one thread per customer</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 246" role="img" aria-label="Animation: Ravi and Sravani chat at the same time in separate threads; when Ravi says make them eggless, the agent uses only Ravi’s thread."><defs><marker id="mv2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v2-ag" class="ve"><rect x="290" y="96" width="180" height="60" rx="8" class="ba"/><text x="380" y="122" text-anchor="middle" class="t-b">Agent + checkpointer</text><text x="380" y="140" text-anchor="middle" class="t-s">one shelf per thread_id</text></g><g id="v2-rh" class="ve"><rect x="20" y="20" width="240" height="210" rx="10" class="b"/><text x="36" y="42" class="t-b">thread "ravi"</text></g><g id="v2-sh" class="ve"><rect x="500" y="20" width="240" height="210" rx="10" class="b"/><text x="516" y="42" class="t-b">thread "sravani"</text></g><g id="v2-r1" class="ve"><rect x="32" y="56" width="216" height="34" rx="6" class="ba"/><text x="44" y="78">Ravi: 2 plum cakes</text></g><g id="v2-s1" class="ve"><rect x="512" y="56" width="216" height="34" rx="6" class="ba"/><text x="524" y="78">Sravani: cupcakes?</text></g><g id="v2-r2" class="ve"><rect x="32" y="98" width="216" height="34" rx="6" class="bw"/><text x="44" y="120">Bot: noted!</text></g><g id="v2-s2" class="ve"><rect x="512" y="98" width="216" height="34" rx="6" class="bw"/><text x="524" y="120">Bot: Rs 80 each</text></g><g id="v2-r3" class="ve"><rect x="32" y="140" width="216" height="34" rx="6" class="ba"/><text x="44" y="162">Ravi: make them eggless</text></g><g id="v2-r4" class="ve"><rect x="32" y="182" width="216" height="34" rx="6" class="bw"/><text x="44" y="204">Bot: 2 plum cakes, eggless ✓</text></g><g id="v2-link" class="ve"><line class="lna" x1="290" y1="126" x2="262" y2="160" marker-end="url(#mv2)"/></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li><code>checkpointer=InMemorySaver()</code> when creating the agent.</li><li><code>config={"configurable": {"thread_id": ...}}</code> with every call; same id = same conversation.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="a"><p class="q">1. Ravi and Sravani chat at the same time. How do you stop the agent mixing up their orders?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Use a different thread_id for each customer</button>
+      <button type="button" data-k="b"><b>B</b>Use a bigger model</button>
+      <button type="button" data-k="c"><b>C</b>Put both names in the system prompt</button>
+      <button type="button" data-k="d"><b>D</b>Turn off memory</button></div>
+      <p class="why">Each thread_id has its own saved history. Different customers, different threads.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="d"><p class="q">2. You restart the Colab runtime and Ravi's earlier messages are gone. Why?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>The thread_id expired</button>
+      <button type="button" data-k="b"><b>B</b>The model deleted them</button>
+      <button type="button" data-k="c"><b>C</b>Groq has a 1-hour limit</button>
+      <button type="button" data-k="d"><b>D</b><code>InMemorySaver</code> keeps threads only in the computer's memory</button></div>
+      <p class="why">In-memory means lost on restart. To keep threads, use a checkpointer that saves to a file or database.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T3 ============ -->
+<section id="t3">
+  <h2><span class="lessonno">03</span>Why not put everything in the prompt?</h2>
+  <p class="oneline">With 10 facts, the prompt is fine. With hundreds of policies, sending all of them on every message wastes money and buries the one fact that matters.</p>
+  <p>Remember Day 1: you pay for every input token on <strong>every call</strong>, and an agent makes several calls per question. A 30-page policy document in the system prompt is paid for again and again, even when the customer only asks about candles. Long prompts are also slower, and the model can miss the important line among many unrelated ones. The better way: <strong>find the 2–3 relevant facts first, and send only those</strong>.</p>
+  <div class="sim" id="sim-cs">
+    <div class="sim-head"><span class="ttl">Everything in the prompt vs only what's relevant</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <label for="cs-n">Number of facts in the bakery's documents: <strong id="cs-nv">20</strong></label>
+      <input type="range" id="cs-n" min="10" max="2000" step="10" value="20" style="width:100%">
+      <div class="stats"><div class="stat"><b id="cs-all">0</b><span>tokens per call, all facts in prompt</span></div><div class="stat"><b id="cs-rag">0</b><span>tokens per call, 3 relevant facts</span></div><div class="stat"><b id="cs-x">0</b><span>times more</span></div></div>
+      <div class="status" id="cs-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Companies that build assistants over thousands of help-centre articles or legal documents don't paste them all into every call. They store them, search for the few relevant pieces, and send only those. That's the approach we use from today.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>You don't carry the <strong>whole library</strong> to the exam. You carry an <strong>index</strong>, find the right page, and bring only that page to the desk.</p>
+  </div>
+  <div class="vid" data-vid="v3">
+    <div class="vid-head"><span class="ttl">Watch: carry the index, not the library</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 210" role="img" aria-label="Animation: sending 300 facts on every call makes a huge, costly prompt; searching first sends only 3 relevant facts."><defs><marker id="mv3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v3-l1" class="ve"><text x="20" y="28" class="t-s">EVERYTHING IN THE PROMPT</text></g><g id="v3-bigr" class="ve"><rect x="20" y="40" width="600" height="44" class="bd grow" style="transform:scaleX(0)" data-t0="scaleX(0)"/><text x="320" y="68" text-anchor="middle" class="t-b">300 facts × every call</text></g><g id="v3-cost1" class="ve"><text x="634" y="68" class="t-red">slow · costly</text></g><g id="v3-l2" class="ve"><text x="20" y="128" class="t-s">SEARCH FIRST, SEND ONLY WHAT MATTERS</text></g><g id="v3-q" class="ve" ><rect x="20" y="140" width="150" height="50" rx="8" class="b"/><text x="95.0" y="161.0" text-anchor="middle" class="t-b">Question</text><text x="95.0" y="179.0" text-anchor="middle" class="t-s">"delivery charge?"</text></g><g id="v3-a1" class="ve"><line class="ln" x1="170" y1="165" x2="208" y2="165" marker-end="url(#mv3)"/></g><g id="v3-s" class="ve" ><rect x="210" y="140" width="130" height="50" rx="8" class="bw"/><text x="275.0" y="161.0" text-anchor="middle" class="t-b">Search</text><text x="275.0" y="179.0" text-anchor="middle" class="t-s">find top 3</text></g><g id="v3-a2" class="ve"><line class="ln" x1="340" y1="165" x2="378" y2="165" marker-end="url(#mv3)"/></g><g id="v3-small" class="ve"><rect x="380" y="140" width="90" height="50" class="ba"/><text x="425" y="170" text-anchor="middle" class="t-b">3 facts</text></g><g id="v3-cost2" class="ve"><text x="490" y="170" class="t-ok">fast · cheap · focused</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Few facts → prompt is fine. Many facts → search first, send only the relevant ones.</li><li>Less to read = cheaper, faster, more focused answers.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="b"><p class="q">1. Why is a 30-page policy document in the system prompt a bad idea?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Models can't read policies</button>
+      <button type="button" data-k="b"><b>B</b>You pay for all of it on every call, and the relevant line gets buried</button>
+      <button type="button" data-k="c"><b>C</b>System prompts can only be one line</button>
+      <button type="button" data-k="d"><b>D</b>It makes the temperature higher</button></div>
+      <p class="why">Every call resends the whole prompt. Most of it is irrelevant to each question, so it costs more and helps less.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="c"><p class="q">2. Sweet Crumbs has only 8 short facts. What's the sensible choice today?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Build a large search system immediately</button>
+      <button type="button" data-k="b"><b>B</b>Give the model no facts at all</button>
+      <button type="button" data-k="c"><b>C</b>Keeping them in the prompt is fine; switch to search as the documents grow</button>
+      <button type="button" data-k="d"><b>D</b>Retrain the model</button></div>
+      <p class="why">Use the simplest option that works (Day 3). We learn RAG today because real businesses quickly collect more documents.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T4 ============ -->
+<section id="t4">
+  <h2><span class="lessonno">04</span>Embeddings: meaning as numbers</h2>
+  <p class="oneline">An embedding turns a piece of text into a list of numbers. Texts with similar <em>meaning</em> get similar numbers, even if they use different words.</p>
+  <p>"Do you deliver?" and "Can you send the cake to my house?" share almost no words, but they mean nearly the same thing. A keyword search would miss the link; embeddings catch it. An <strong>embedding model</strong> (a small, cheap model, different from the chat model) turns each sentence into a few hundred numbers, like coordinates. Close coordinates = close meaning. The closeness score is often called <strong>similarity</strong>.</p>
+  <div class="sim" id="sim-em">
+    <div class="sim-head"><span class="ttl">A map of meaning (simplified to 2 dimensions)</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="opts" id="em-o" role="group" aria-label="Customer question"></div>
+      <svg class="dg" id="em-svg" viewBox="0 0 760 330" role="img" aria-label="Bakery facts plotted as points on a 2D map, grouped by topic: delivery, payment, eggless and allergens, and timings. The question appears as a point and the nearest facts are highlighted."></svg>
+      <div class="status" id="em-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>When you search a shopping app for "something to keep my phone safe" and it shows phone cases, or a music app suggests songs that feel similar, embeddings are usually doing the work behind the scenes.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>supermarket layout</strong>: things that belong together sit on nearby shelves (soaps near shampoos, rice near dal). Embeddings put sentences on a "shelf map" so that similar meanings sit close together.</p>
+  </div>
+  <div class="vid" data-vid="v4">
+    <div class="vid-head"><span class="ttl">Watch: meaning becomes a map</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 252" role="img" aria-label="Animation: four sentences become points on a meaning map; delivery sentences sit together; a new question about sending to home lands next to them."><defs><marker id="mv4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v4-map" class="ve"><rect x="300" y="20" width="440" height="220" rx="10" class="b"/><text x="316" y="42" class="t-s">meaning map</text></g><g id="v4-t1" class="ve"><rect x="20" y="40" width="240" height="34" rx="6" class="bw"/><text x="32" y="62">We deliver within 5 km</text></g><g id="v4-t1p" class="ve"><circle cx="390" cy="90" r="8" class="bw"/><text x="402" y="94" class="t-s">we…</text></g><g id="v4-t2" class="ve"><rect x="20" y="84" width="240" height="34" rx="6" class="bw"/><text x="32" y="106">Delivery is Rs 50</text></g><g id="v4-t2p" class="ve"><circle cx="430" cy="120" r="8" class="bw"/><text x="442" y="124" class="t-s">delivery…</text></g><g id="v4-t3" class="ve"><rect x="20" y="128" width="240" height="34" rx="6" class="bw"/><text x="32" y="150">All cakes come eggless</text></g><g id="v4-t3p" class="ve"><circle cx="620" cy="190" r="8" class="bw"/><text x="632" y="194" class="t-s">all…</text></g><g id="v4-t4" class="ve"><rect x="20" y="172" width="240" height="34" rx="6" class="bw"/><text x="32" y="194">Plum cake has nuts</text></g><g id="v4-t4p" class="ve"><circle cx="660" cy="160" r="8" class="bw"/><text x="672" y="164" class="t-s">plum…</text></g><g id="v4-nums" class="ve"><text x="20" y="232" class="t-m">"We deliver…" → [0.12, -0.80, 0.33, … 384 numbers]</text></g><g id="v4-q" class="ve"><rect x="20" y="214" width="0" height="0"/><rect x="394" y="122" width="14" height="14" class="bd" transform="rotate(45 401 129)"/><text x="350" y="160" class="t-b">"send it to my home?"</text></g><g id="v4-near" class="ve"><circle cx="410" cy="105" r="42" fill="none" class="lna" stroke-dasharray="5 4"/></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Embedding = text → list of numbers that captures meaning.</li><li>Similar meaning → nearby numbers, even with different words. Real embeddings have hundreds of dimensions, not 2.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="a"><p class="q">1. Which pair would have the most similar embeddings?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>"Do you deliver?" and "Can you send it to my home?"</button>
+      <button type="button" data-k="b"><b>B</b>"Do you deliver?" and "Do you make eggless cakes?"</button>
+      <button type="button" data-k="c"><b>C</b>"Plum cake price" and "Opening hours on Sunday"</button>
+      <button type="button" data-k="d"><b>D</b>"Cash or UPI?" and "Is it nut-free?"</button></div>
+      <p class="why">A has different words but the same meaning: getting the cake to the customer. That's exactly what embeddings capture.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="d"><p class="q">2. What is an embedding?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>A summary of the text in fewer words</button>
+      <button type="button" data-k="b"><b>B</b>A translation into English</button>
+      <button type="button" data-k="c"><b>C</b>The text split into tokens</button>
+      <button type="button" data-k="d"><b>D</b>A list of numbers that represents the text's meaning</button></div>
+      <p class="why">Tokens are pieces of text (Day 1); an embedding is a list of numbers for the meaning of a whole piece of text.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T5 ============ -->
+<section id="t5">
+  <h2><span class="lessonno">05</span>A vector database: ChromaDB</h2>
+  <p class="oneline">A vector database stores each text with its embedding, and finds the texts closest in meaning to a question.</p>
+  <p><strong>ChromaDB</strong> is a free vector database that runs inside Colab. You give it texts; it makes the embeddings for you with a small built-in model (no API key needed), stores them, and answers "which texts are most similar to this question?".</p>
+<pre><code class="py">import chromadb
+
+client = chromadb.Client()                                   # an in-memory database
+faq = client.get_or_create_collection(name="sweet_crumbs_faq")   # like a table
+
+faq.add(
+    ids=["delivery", "payment", "photo_cake"],
+    documents=[
+        "We deliver within 5 km of the bakery. Delivery is Rs 50, free for orders above Rs 1,000.",
+        "We accept UPI and cash. Orders above Rs 1,000 need a 50% advance by UPI.",
+        "Photo cakes and custom designs need 48 hours' notice.",
+    ],
+)
+
+results = faq.query(query_texts=["Can you send the cake to my house?"], n_results=2)
+print(results["documents"][0])    # the 2 closest texts, best match first</code></pre>
+  <div class="sim" id="sim-db">
+    <div class="sim-head"><span class="ttl">Search the bakery's 12 facts by meaning</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="row"><input type="text" id="db-q" aria-label="Question" value="Can you send the cake to my house?" style="flex:1;min-width:220px"><label for="db-n">n_results</label><select id="db-n"><option>1</option><option>2</option><option selected>3</option></select><button class="btn" type="button" id="db-go">faq.query(...)</button></div>
+      <div class="opts" id="db-sug" role="group" aria-label="Example questions"></div>
+      <div class="tablewrap"><table><thead><tr><th>#</th><th>Closest facts</th><th>Similarity</th></tr></thead><tbody id="db-body"></tbody></table></div>
+      <div class="status" id="db-st">Note: these scores are simulated for teaching; ChromaDB computes real ones from embeddings.</div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Help centres, legal research tools and internal company assistants keep their documents in vector databases so staff can ask questions in plain language. Sweet Crumbs' version is small: one collection of FAQs and policies.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>librarian who knows what every book is about</strong>. You don't need the exact title; describe what you want and they bring the three most useful books.</p>
+  </div>
+  <div class="vid" data-vid="v5">
+    <div class="vid-head"><span class="ttl">Watch: store, then search by meaning</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 240" role="img" aria-label="Animation: twelve facts are added to ChromaDB as text plus numbers; a query returns the three closest facts with similarity scores."><defs><marker id="mv5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v5-docs" class="ve"><rect x="20" y="30" width="200" height="190" rx="10" class="bw"/><text x="36" y="54" class="t-b">12 bakery facts</text><text x="36" y="80" class="t-s">delivery · payment ·</text><text x="36" y="98" class="t-s">cancellation · photo cake ·</text><text x="36" y="116" class="t-s">eggless · allergens · …</text></g><g id="v5-add" class="ve"><line class="ln" x1="220" y1="125" x2="268" y2="125" marker-end="url(#mv5)"/><text x="230" y="114" class="t-m">.add</text></g><g id="v5-db" class="ve"><rect x="270" y="30" width="220" height="190" rx="10" class="ba"/><text x="380" y="54" class="t-b" text-anchor="middle">ChromaDB</text><rect x="286" y="66" width="188" height="22" rx="4" class="bw"/><text x="296" y="82" class="t-s">text + [numbers]</text><rect x="286" y="94" width="188" height="22" rx="4" class="bw"/><text x="296" y="110" class="t-s">text + [numbers]</text><rect x="286" y="122" width="188" height="22" rx="4" class="bw"/><text x="296" y="138" class="t-s">text + [numbers]</text><rect x="286" y="150" width="188" height="22" rx="4" class="bw"/><text x="296" y="166" class="t-s">text + [numbers]</text><rect x="286" y="178" width="188" height="22" rx="4" class="bw"/><text x="296" y="194" class="t-s">text + [numbers]</text></g><g id="v5-q" class="ve"><rect x="560" y="30" width="180" height="50" rx="8" class="b"/><text x="650" y="52" text-anchor="middle" class="t-b">.query(</text><text x="650" y="70" text-anchor="middle" class="t-s">"send it home?", n=3)</text><line class="ln" x1="560" y1="55" x2="492" y2="80" marker-end="url(#mv5)"/></g><g id="v5-res" class="ve"><line class="ln" x1="492" y1="150" x2="558" y2="160" marker-end="url(#mv5)"/><rect x="560" y="120" width="180" height="100" rx="8" class="ba"/><text x="574" y="144" class="t-s">1 delivery (0.86)</text><text x="574" y="168" class="t-s">2 pickup (0.61)</text><text x="574" y="192" class="t-s">3 payment (0.48)</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li><code>get_or_create_collection</code> → <code>.add(ids, documents)</code> → <code>.query(query_texts, n_results)</code>.</li><li>Results come as lists of lists: <code>results["documents"][0]</code> is for your first question.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="b"><p class="q">1. What does <code>faq.query(query_texts=["..."], n_results=3)</code> return?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>A written answer from the chat model</button>
+      <button type="button" data-k="b"><b>B</b>The 3 stored texts closest in meaning to the question</button>
+      <button type="button" data-k="c"><b>C</b>Every stored text</button>
+      <button type="button" data-k="d"><b>D</b>Only texts containing the exact same words</button></div>
+      <p class="why">A vector database finds; it doesn't write answers. Writing comes in the next step, RAG.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="c"><p class="q">2. Why does ChromaDB find "We deliver within 5 km…" for "Can you send the cake to my house?"</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Both contain the word "cake"</button>
+      <button type="button" data-k="b"><b>B</b>It was the first fact added</button>
+      <button type="button" data-k="c"><b>C</b>Their embeddings are close because the meanings are close</button>
+      <button type="button" data-k="d"><b>D</b>The chat model told it to</button></div>
+      <p class="why">It compares meanings (embeddings), not words. That's the advantage over keyword search.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T6 ============ -->
+<section id="t6">
+  <h2><span class="lessonno">06</span>Chunking: cut documents into the right pieces</h2>
+  <p class="oneline">Long documents are split into small pieces called <strong>chunks</strong> before they are stored. Each chunk should hold one idea.</p>
+  <p>If you store a whole 10-page policy as one item, every search returns all 10 pages, which defeats the purpose. If you cut it too small, a sentence gets split and loses its meaning. Good chunks are a few sentences about <strong>one topic</strong>. A small <strong>overlap</strong> (repeating a little text between neighbouring chunks) stops important sentences being cut in half.</p>
+<pre><code class="py">def chunk(text: str, size: int = 300, overlap: int = 50) -> list[str]:
+    """Split text into pieces of about `size` characters that overlap by `overlap`."""
+    pieces, start = [], 0
+    while start < len(text):
+        pieces.append(text[start:start + size])
+        start += size - overlap
+    return pieces</code></pre>
+  <p>For Sweet Crumbs the easiest chunking is natural: <strong>one FAQ = one chunk</strong>. For long PDFs, libraries such as LangChain's text splitters cut by paragraphs and sentences for you.</p>
+  <div class="sim" id="sim-ch">
+    <div class="sim-head"><span class="ttl">Try different chunk sizes on the bakery's policy page</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <label for="ch-s">Chunk size: <strong id="ch-sv">160</strong> characters</label>
+      <input type="range" id="ch-s" min="40" max="700" step="20" value="160" style="width:100%">
+      <p class="note" style="margin:6px 0 2px">Question: "How many hours' notice for a photo cake?"</p>
+      <div id="ch-out"></div>
+      <div class="status" id="ch-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>When a college puts its 80-page student handbook into a chatbot, chunking decides whether "What is the attendance rule?" returns the attendance paragraph or a random mix of fee rules and hostel timings.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p><strong>Cutting a cake into slices</strong>: one giant slice is too much for one guest, crumbs are useless. Neat slices, each with a bit of every layer, are just right.</p>
+  </div>
+  <div class="vid" data-vid="v6">
+    <div class="vid-head"><span class="ttl">Watch: slicing a document</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 230" role="img" aria-label="Animation: a long policy document is cut into four chunks, one idea each, which are stored separately."><defs><marker id="mv6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v6-doc" class="ve"><rect x="20" y="30" width="720" height="60" rx="8" class="bw"/><text x="36" y="56">Policies: 24 h notice. Photo cakes 48 h. Delivery within 5 km, Rs 50… UPI or cash… Cancel 12 h…</text><text x="36" y="76" class="t-s">one long document</text></g><g id="v6-cut1" class="ve"><line x1="200" y1="22" x2="200" y2="98" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 4"/></g><g id="v6-cut2" class="ve"><line x1="380" y1="22" x2="380" y2="98" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 4"/></g><g id="v6-cut3" class="ve"><line x1="560" y1="22" x2="560" y2="98" stroke="var(--danger)" stroke-width="2" stroke-dasharray="5 4"/></g><g id="v6-k1" class="ve"><rect x="20" y="130" width="170" height="50" rx="8" class="ba"/><text x="105" y="160" text-anchor="middle" class="t-b">chunk: notice</text></g><g id="v6-k2" class="ve"><rect x="210" y="130" width="170" height="50" rx="8" class="ba"/><text x="295" y="160" text-anchor="middle" class="t-b">chunk: photo cakes</text></g><g id="v6-k3" class="ve"><rect x="390" y="130" width="170" height="50" rx="8" class="ba"/><text x="475" y="160" text-anchor="middle" class="t-b">chunk: delivery</text></g><g id="v6-k4" class="ve"><rect x="570" y="130" width="170" height="50" rx="8" class="ba"/><text x="655" y="160" text-anchor="middle" class="t-b">chunk: payment + cancel</text></g><g id="v6-db" class="ve"><text x="380" y="214" text-anchor="middle" class="t-ok">each chunk = one idea → stored separately in ChromaDB</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>One chunk ≈ one idea, a few sentences.</li><li>Too big → mixed topics; too small → broken meaning. A little overlap helps.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="d"><p class="q">1. You store a 20-page handbook as one chunk. What goes wrong?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>ChromaDB refuses to store it</button>
+      <button type="button" data-k="b"><b>B</b>The embedding becomes more accurate</button>
+      <button type="button" data-k="c"><b>C</b>Nothing</button>
+      <button type="button" data-k="d"><b>D</b>Every search returns the whole handbook, so you're back to stuffing the prompt</button></div>
+      <p class="why">Retrieval only helps if it can return a small, focused piece.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="a"><p class="q">2. Why add a small overlap between chunks?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>So a sentence cut at a boundary still appears whole in one chunk</button>
+      <button type="button" data-k="b"><b>B</b>To make more chunks for no reason</button>
+      <button type="button" data-k="c"><b>C</b>To save tokens</button>
+      <button type="button" data-k="d"><b>D</b>Because ChromaDB requires it</button></div>
+      <p class="why">Overlap repeats a little text so that important lines near the cut aren't lost.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T7 ============ -->
+<section id="t7">
+  <h2><span class="lessonno">07</span>RAG: retrieve, then answer</h2>
+  <p class="oneline">RAG = <strong>R</strong>etrieval-<strong>A</strong>ugmented <strong>G</strong>eneration: find the relevant facts, add them to the prompt, then let the model answer from them.</p>
+  <ol>
+    <li><strong>Retrieve:</strong> search the vector database with the customer's question.</li>
+    <li><strong>Augment:</strong> put the top results into the prompt as "facts you may use".</li>
+    <li><strong>Generate:</strong> the model answers <em>only</em> from those facts, or says it will check with the owner.</li>
+  </ol>
+  <p>With an agent, the cleanest way is to make retrieval a <strong>tool</strong>. The agent decides when a question is about a policy and calls it:</p>
+<pre><code class="py">@tool
+def search_faq(question: str) -> str:
+    """Search Sweet Crumbs' policies and FAQs: delivery, payment, cancellation,
+    photo cakes, allergens, storage, candles and messages on cakes.
+    Use for any question about rules or policies, not for prices or opening hours."""
+    results = faq.query(query_texts=[question], n_results=3)
+    return "\n".join(results["documents"][0])</code></pre>
+  <p>And one line in the system prompt's RULES: <em>"For policy questions, use search_faq and answer only from what it returns. If the answer isn't there, say you'll check with the owner."</em></p>
+  <div class="sim" id="sim-rag">
+    <div class="sim-head"><span class="ttl">Same question, with and without RAG</span><span class="live">Live</span></div>
+    <div class="sim-body">
+      <div class="opts" id="rag-o" role="group" aria-label="Customer question"></div>
+      <label style="font-weight:400;display:flex;gap:8px;align-items:center"><input type="checkbox" id="rag-on" checked> Agent has the <code>search_faq</code> tool</label>
+      <div class="hist" id="rag-log"></div>
+      <div class="status" id="rag-st"></div>
+    </div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Remember the airline chatbot from Day 1 that promised a refund the real policy didn't allow? RAG is the standard fix: the assistant reads the actual policy before answering, and companies can update the documents without changing the model.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>An <strong>open-book exam</strong> with a strict rule: write only what's in the book, and if it isn't there, say "not in the book". No bluffing.</p>
+  </div>
+  <div class="vid" data-vid="v7">
+    <div class="vid-head"><span class="ttl">Watch: retrieve, augment, generate</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 194" role="img" aria-label="Animation: a question is used to retrieve facts, which are added to the prompt, and the model answers from them; if nothing is found it says it will check."><defs><marker id="mv7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v7-q" class="ve" ><rect x="20" y="40" width="150" height="56" rx="8" class="b"/><text x="95.0" y="64.0" text-anchor="middle" class="t-b">Question</text><text x="95.0" y="82.0" text-anchor="middle" class="t-s">"delivery charge?"</text></g><g id="v7-a1" class="ve"><line class="ln" x1="170" y1="68" x2="198" y2="68" marker-end="url(#mv7)"/></g><g id="v7-r" class="ve" ><rect x="200" y="40" width="150" height="56" rx="8" class="bw"/><text x="275.0" y="64.0" text-anchor="middle" class="t-b">1 · Retrieve</text><text x="275.0" y="82.0" text-anchor="middle" class="t-s">search_faq</text></g><g id="v7-a2" class="ve"><line class="ln" x1="350" y1="68" x2="378" y2="68" marker-end="url(#mv7)"/></g><g id="v7-au" class="ve" ><rect x="380" y="40" width="160" height="56" rx="8" class="bw"/><text x="460.0" y="64.0" text-anchor="middle" class="t-b">2 · Augment</text><text x="460.0" y="82.0" text-anchor="middle" class="t-s">facts + question</text></g><g id="v7-a3" class="ve"><line class="ln" x1="540" y1="68" x2="568" y2="68" marker-end="url(#mv7)"/></g><g id="v7-g" class="ve" ><rect x="570" y="40" width="170" height="56" rx="8" class="ba"/><text x="655.0" y="64.0" text-anchor="middle" class="t-b">3 · Generate</text><text x="655.0" y="82.0" text-anchor="middle" class="t-s">answer from facts</text></g><g id="v7-ans" class="ve"><rect x="380" y="130" width="360" height="44" rx="8" class="ba"/><text x="560" y="157" text-anchor="middle">"Free delivery within 5 km for orders above Rs 1,000."</text><line class="ln" x1="655" y1="96" x2="655" y2="128" marker-end="url(#mv7)"/></g><g id="v7-nf" class="ve"><rect x="20" y="130" width="330" height="44" rx="8" class="bw"/><text x="185" y="150" text-anchor="middle" class="t-b">Not in the documents?</text><text x="185" y="166" text-anchor="middle" class="t-s">"I'll check with the owner." No guessing.</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Retrieve → augment → generate. RAG adds knowledge without retraining.</li><li>Always allow "not found → I'll check with the owner". Update the documents, not the model.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="c"><p class="q">1. The bakery changes its delivery charge from Rs 50 to Rs 60. With RAG, what do you update?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Retrain the model</button>
+      <button type="button" data-k="b"><b>B</b>Change the model name</button>
+      <button type="button" data-k="c"><b>C</b>The delivery fact stored in ChromaDB</button>
+      <button type="button" data-k="d"><b>D</b>Nothing; the model will find out</button></div>
+      <p class="why">Knowledge lives in the documents. Update the fact (same id) and the next answer uses it.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="b"><p class="q">2. A customer asks "Do you sell biryani?" and search_faq returns nothing relevant. What should the agent say?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>Make up a biryani price</button>
+      <button type="button" data-k="b"><b>B</b>Say it's not something the bakery offers, or that it will check with the owner</button>
+      <button type="button" data-k="c"><b>C</b>Return the delivery policy anyway</button>
+      <button type="button" data-k="d"><b>D</b>Stop replying</button></div>
+      <p class="why">Answer only from what was retrieved. When nothing fits, say so honestly.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ T8 ============ -->
+<section id="t8">
+  <h2><span class="lessonno">08</span>Single-agent sign-off</h2>
+  <p class="oneline">Brain, instructions, tools, memory and knowledge: your single agent is complete. Check it can handle every kind of customer message.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Part (Day 3)</th><th>What you built</th><th>Day</th></tr></thead>
+    <tbody>
+      <tr><td>Brain</td><td><code>ChatGroq</code>, low temperature</td><td>3</td></tr>
+      <tr><td>Instructions</td><td>System prompt: Role · Facts · Rules · Format</td><td>2–3</td></tr>
+      <tr><td>Tools</td><td><code>get_price</code>, <code>is_open</code>, <code>log_order</code>, <code>search_faq</code></td><td>4–5</td></tr>
+      <tr><td>Memory</td><td>Checkpointer + thread_id per customer</td><td>5</td></tr>
+      <tr><td>Knowledge</td><td>ChromaDB of FAQs and policies (RAG)</td><td>5</td></tr>
+      <tr><td>Checks</td><td>Pydantic inside <code>log_order</code>; tests.csv with a pass rate</td><td>3–4</td></tr>
+    </tbody>
+  </table></div>
+  <div class="sim" id="sim-so">
+    <div class="sim-head"><span class="ttl">Which part of the agent handles each message?</span><span class="live">Live</span></div>
+    <div class="sim-body"><div id="so-list"></div><div class="status" id="so-st">Choose for each message.</div></div>
+  </div>
+  <div class="box real"><span class="tag">Real world</span>
+    <p>Many useful business assistants are exactly this: one agent with a few tools, conversation memory and a searchable knowledge base. Before adding more agents (Level 3), make sure one agent works well and is tested.</p>
+  </div>
+  <div class="box analogy"><span class="tag">Analogy</span>
+    <p>A <strong>new employee after probation</strong>: knows the rules, can use the billing system, remembers regular customers and checks the policy file before promising anything. Now they're ready to join a team.</p>
+  </div>
+  <div class="vid" data-vid="v8">
+    <div class="vid-head"><span class="ttl">Watch: the complete single agent</span><span class="live">Animated video</span></div>
+    <div class="vid-stage"><svg class="dg" viewBox="0 0 760 266" role="img" aria-label="Animation: brain and instructions, tools, memory and knowledge connect to the Sweet Crumbs agent, which is marked tested and ready for Level 3."><defs><marker id="mv8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs><g id="v8-core" class="ve" ><rect x="290" y="96" width="180" height="64" rx="8" class="ba"/><text x="380.0" y="124.0" text-anchor="middle" class="t-b">Sweet Crumbs agent</text><text x="380.0" y="142.0" text-anchor="middle" class="t-s">single agent, complete</text></g><g id="v8-b" class="ve"><rect x="20" y="20" width="200" height="56" rx="8" class="bw"/><text x="120" y="53" text-anchor="middle" class="t-b">Brain + instructions</text></g><g id="v8-t" class="ve"><rect x="540" y="20" width="200" height="56" rx="8" class="bw"/><text x="640" y="53" text-anchor="middle" class="t-b">Tools: price, hours, order</text></g><g id="v8-m" class="ve"><rect x="20" y="176" width="200" height="56" rx="8" class="bw"/><text x="120" y="209" text-anchor="middle" class="t-b">Memory: threads</text></g><g id="v8-k" class="ve"><rect x="540" y="176" width="200" height="56" rx="8" class="bw"/><text x="640" y="209" text-anchor="middle" class="t-b">Knowledge: search_faq</text></g><g id="v8-l" class="ve"><path class="ln" d="M220 48 H260 V112 H288"/><path class="ln" d="M540 48 H500 V112 H472"/><path class="ln" d="M220 204 H260 V144 H288"/><path class="ln" d="M540 204 H500 V144 H472"/></g><g id="v8-ok" class="ve"><text x="380" y="252" text-anchor="middle" class="t-ok">✓ tested · ready for Level 3: a team of agents</text></g></svg></div>
+    <p class="vid-cap" aria-live="polite">Press Play to start.</p>
+    <div class="vid-bar"><button class="btn vid-play" type="button">Play</button><div class="vid-prog" title="Click to jump"><div></div></div><span class="vid-time">0:00</span><label><input type="checkbox" class="vid-voice"> Narrate aloud</label></div>
+  </div>
+  <div class="box remember"><span class="tag">Remember</span>
+    <ul><li>Prices and hours → tools. Policies → search_faq. Earlier messages → thread memory. Saving → log_order.</li><li>Test every kind of message before moving to multiple agents.</li></ul>
+  </div>
+  <div class="quiz"><div class="quiz-head">Check yourself<span>2 questions</span></div>
+    <div class="mcq" data-ans="a"><p class="q">1. "Can I cancel my order tomorrow morning?" Which tool should the agent use?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b><code>search_faq</code></button>
+      <button type="button" data-k="b"><b>B</b><code>get_price</code></button>
+      <button type="button" data-k="c"><b>C</b><code>is_open</code></button>
+      <button type="button" data-k="d"><b>D</b><code>log_order</code></button></div>
+      <p class="why">Cancellation is a policy question: search the FAQs and answer from them.</p><button type="button" class="btn ghost retry">Try again</button></div>
+    <div class="mcq" data-ans="d"><p class="q">2. Before building multiple agents (Level 3), what should you be sure of?</p><div class="choices">
+      <button type="button" data-k="a"><b>A</b>That you're using the biggest model</button>
+      <button type="button" data-k="b"><b>B</b>That the system prompt is as long as possible</button>
+      <button type="button" data-k="c"><b>C</b>That every fact is in the prompt</button>
+      <button type="button" data-k="d"><b>D</b>That the single agent works and passes its tests</button></div>
+      <p class="why">A team of agents is only as good as each member. Get one right first.</p><button type="button" class="btn ghost retry">Try again</button></div>
+  </div>
+</section>
+
+<!-- ============ BUILD ============ -->
+<section id="build">
+  <h2>Today's build: the complete Sweet Crumbs single agent</h2>
+  <p>Start from your Day 4 notebook (setup, tools and the Orders sheet). Add these cells after it.</p>
+  <h3>Cell 1 · Install and load the bakery's knowledge</h3>
+<pre><code class="py">!pip install -q chromadb
+import chromadb
+
+FAQS = {
+    "delivery":     "We deliver within 5 km of the bakery. Delivery is Rs 50, free for orders above Rs 1,000.",
+    "payment":      "We accept UPI and cash. Orders above Rs 1,000 need a 50% advance by UPI.",
+    "cancellation": "Cancellation is free up to 12 hours before pickup. After that, the advance is not refunded.",
+    "photo_cake":   "Photo cakes and custom designs need 48 hours' notice.",
+    "notice":       "Regular orders need 24 hours' notice.",
+    "eggless":      "All our cakes have eggless versions at the same price.",
+    "allergens":    "Plum cake contains nuts and dried fruit. Cupcakes and chocolate cake are nut-free.",
+    "storage":      "Keep cakes in the fridge and eat them within 3 days.",
+    "message":      "A message on the cake is free, up to 20 letters.",
+    "candles":      "Candles are free with every cake.",
+    "discounts":    "Bulk-order discounts need the owner's approval.",
+    "pickup":       "Pickup is during opening hours: Monday to Saturday 9 am to 8 pm, Sunday 10 am to 6 pm.",
+}
+
+client = chromadb.Client()
+faq = client.get_or_create_collection(name="sweet_crumbs_faq")
+faq.upsert(ids=list(FAQS.keys()), documents=list(FAQS.values()))   # upsert = add or update
+print(faq.count(), "facts stored")
+print(faq.query(query_texts=["Can you send the cake to my house?"], n_results=2)["documents"][0])</code></pre>
+  <h3>Cell 2 · The search_faq tool</h3>
+<pre><code class="py">@tool
+def search_faq(question: str) -> str:
+    """Search Sweet Crumbs' policies and FAQs: delivery, payment, cancellation,
+    photo cakes, allergens, storage, candles and messages on cakes.
+    Use for any question about rules or policies, not for prices or opening hours."""
+    results = faq.query(query_texts=[question], n_results=3)
+    return "\n".join(results["documents"][0])</code></pre>
+  <h3>Cell 3 · The agent with memory</h3>
+<pre><code class="py">from langgraph.checkpoint.memory import InMemorySaver
+from langchain.agents import create_agent
+
+SYSTEM = """ROLE:   You are the friendly assistant for Sweet Crumbs Home Bakery.
+RULES:  Use get_price for prices and is_open for timings; never guess them.
+        For any policy question, use search_faq and answer ONLY from what it returns.
+        If the answer isn't there, say "I'll check with the owner."
+        Before log_order, make sure you have name, item, quantity and pickup date; ask if missing.
+FORMAT: Under 60 words, friendly, English or Telugu matching the customer."""
+
+agent = create_agent(model=llm, tools=[get_price, is_open, log_order, search_faq],
+                     system_prompt=SYSTEM, checkpointer=InMemorySaver())
+
+def chat(thread_id: str, text: str) -> str:
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        result = agent.invoke({"messages": [{"role": "user", "content": text}]}, config)
+        return result["messages"][-1].content
+    except Exception as e:
+        print("Agent error:", e)
+        return "Sorry, I'm a little busy. Please try again in a minute."
+
+print(chat("ravi", "Hi, I'm Ravi. Do you deliver? My order is about Rs 1,300."))
+print(chat("ravi", "Does the plum cake have nuts?"))
+print(chat("sravani", "Can I cancel tomorrow morning if I pick up tomorrow evening?"))
+print(chat("ravi", "What's my name, and will I pay for delivery?"))   # memory + RAG together</code></pre>
+  <h3>Cell 4 · Add today's questions to your tests</h3>
+<pre><code class="py">%%writefile -a tests.csv
+Do you deliver?,5 km
+Is the plum cake nut-free?,nuts
+How much notice for a photo cake?,48
+Can I pay by UPI?,UPI
+Do you sell biryani?,check with the owner</code></pre>
+  <p>Run <code>run_tests()</code> from Day 3 again. For the tests, a fresh thread per question keeps them independent.</p>
+  <div class="box real"><span class="tag">Test it like a customer</span><p>Ask a policy question in your own words (not the FAQ's words), ask something not in the FAQs, and ask a follow-up that depends on your previous message. Then switch thread_id and check the agent doesn't remember the other customer.</p></div>
+
+  <h3>Your 30%: do it yourself</h3>
+  <ol>
+    <li><strong>Your knowledge:</strong> load the 15–20 facts you wrote for homework into a ChromaDB collection for your business, one fact per chunk.</li>
+    <li><strong>Your search tool:</strong> write <code>search_…</code> with a docstring that lists the topics it covers.</li>
+    <li><strong>Your agent:</strong> add it to your Day 4 agent with a checkpointer; test with two different thread_ids.</li>
+    <li><strong>Break it:</strong> ask something your documents don't cover. Does it say it will check, or does it make something up? Fix the RULES if needed.</li>
+    <li><strong>Sign-off:</strong> run all your tests and write the pass rate in your notebook. Aim for at least 80%.</li>
+  </ol>
+  <div class="box lens"><span class="tag">Before Day 6</span><p>Draw, on paper, the steps your business follows for one customer request (for example: question → answer, or order → check → save → confirm). Tomorrow we turn that drawing into a LangGraph workflow, the first step to multiple agents.</p></div>
+</section>
+
+<section id="wrap">
+  <h2>Summary: Day 5 in one table</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Idea</th><th>One line</th><th>Analogy</th></tr></thead>
+    <tbody>
+      <tr><td>Three kinds of memory</td><td>Conversation, customer, knowledge</td><td>Notepad, register, policy file</td></tr>
+      <tr><td>Threads</td><td>Checkpointer + one thread_id per conversation</td><td>Email threads</td></tr>
+      <tr><td>Not everything in the prompt</td><td>Search first, send only what's relevant</td><td>An index, not the whole library</td></tr>
+      <tr><td>Embeddings</td><td>Text → numbers; similar meaning, nearby numbers</td><td>Supermarket shelves</td></tr>
+      <tr><td>Vector database</td><td>Store texts, find closest by meaning</td><td>A librarian who knows every book</td></tr>
+      <tr><td>Chunking</td><td>One idea per chunk, small overlap</td><td>Neat cake slices</td></tr>
+      <tr><td>RAG</td><td>Retrieve → augment → generate; "not found" is allowed</td><td>Open-book exam, no bluffing</td></tr>
+      <tr><td>Sign-off</td><td>Brain, instructions, tools, memory, knowledge, tests</td><td>Employee after probation</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <p>Ai Agents Workshop · Level 2 · Day 5 tutorial, prepared 19 November 2026. Code follows the LangChain short-term memory documentation (<code>InMemorySaver</code>, <code>thread_id</code>) and the ChromaDB getting-started guide as of November 2026; run the build once before class. Sweet Crumbs' policies are invented for the case study. Similarity scores, the 2D meaning map and agent replies in the simulators are simplified for teaching, not real output.</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function pick(container,labels,onPick){
+  container.innerHTML=labels.map(function(l,i){return '<button class="opt" type="button" data-i="'+i+'">'+l+'</button>';}).join('');
+  var bs=container.querySelectorAll('.opt');
+  bs.forEach(function(b){b.addEventListener('click',function(){bs.forEach(function(x){x.classList.toggle('right',x===b);});onPick(+b.getAttribute('data-i'),b);});});
+  return bs;
+}
+function sorter(listId,stId,items,labels,doneMsg){
+  var box=$(listId),right=0,answered=0;
+  box.innerHTML=items.map(function(it,i){return '<div style="padding:10px 0;border-bottom:1px solid var(--line)"><div><strong>'+(i+1)+'.</strong> '+esc(it.t)+'</div><div class="opts" data-i="'+i+'">'+labels.map(function(l,j){return '<button class="opt" type="button" data-j="'+j+'">'+l+'</button>';}).join('')+'</div><div class="note" data-why="'+i+'"></div></div>';}).join('');
+  box.querySelectorAll('.opts').forEach(function(g){var i=+g.getAttribute('data-i'),it=items[i],done=false;
+    g.querySelectorAll('.opt').forEach(function(b){b.addEventListener('click',function(){var j=+b.getAttribute('data-j');
+      g.querySelectorAll('.opt').forEach(function(x){x.classList.remove('right','wrong');});
+      g.querySelectorAll('.opt')[it.a].classList.add('right');if(j!==it.a)b.classList.add('wrong');
+      box.querySelector('[data-why="'+i+'"]').innerHTML=(j===it.a?'<strong>Yes.</strong> ':'<strong>Not quite.</strong> ')+esc(it.w);
+      if(!done){done=true;answered++;if(j===it.a)right++;}
+      $(stId).innerHTML=answered<items.length?answered+' of '+items.length+' answered.':'<strong>'+right+' of '+items.length+' right first time.</strong> '+doneMsg;
+    });});});
+}
+
+var FACTS=[
+ {id:'delivery',t:'We deliver within 5 km of the bakery. Delivery is Rs 50, free for orders above Rs 1,000.',k:['deliver','delivery','send','home','house','address','km','bring','drop','courier'],x:120,y:80},
+ {id:'payment',t:'We accept UPI and cash. Orders above Rs 1,000 need a 50% advance by UPI.',k:['pay','payment','upi','cash','advance','gpay','phonepe','card'],x:330,y:70},
+ {id:'cancellation',t:'Cancellation is free up to 12 hours before pickup. After that, the advance is not refunded.',k:['cancel','cancellation','refund','change','money back'],x:380,y:130},
+ {id:'photo_cake',t:'Photo cakes and custom designs need 48 hours’ notice.',k:['photo','custom','design','picture','print','theme'],x:600,y:240},
+ {id:'notice',t:'Regular orders need 24 hours’ notice.',k:['notice','today','tonight','advance time','how early','same day','evening'],x:560,y:290},
+ {id:'eggless',t:'All our cakes have eggless versions at the same price.',k:['eggless','egg','vegetarian','veg','without egg'],x:170,y:250},
+ {id:'allergens',t:'Plum cake contains nuts and dried fruit. Cupcakes and chocolate cake are nut-free.',k:['nut','nuts','allergy','allergic','peanut','almond','dry fruit','safe'],x:110,y:300},
+ {id:'storage',t:'Keep cakes in the fridge and eat them within 3 days.',k:['store','storage','fridge','keep','fresh','days','last'],x:250,y:300},
+ {id:'message',t:'A message on the cake is free, up to 20 letters.',k:['message','write','name on','letters','text','happy birthday'],x:670,y:150},
+ {id:'candles',t:'Candles are free with every cake.',k:['candle','candles','free','extra'],x:690,y:90},
+ {id:'discounts',t:'Bulk-order discounts need the owner’s approval.',k:['discount','bulk','offer','cheaper','less','bargain','deal'],x:430,y:60},
+ {id:'pickup',t:'Pickup is during opening hours: Monday to Saturday 9 am to 8 pm, Sunday 10 am to 6 pm.',k:['pickup','pick up','collect','timing','hours','open','sunday','time'],x:500,y:220}];
+
+/* T1 memory kinds */
+if($('mk-list'))sorter('mk-list','mk-st',[
+  {t:'"I said 2 plum cakes, not 3" (two messages ago)',a:0,w:'Something said earlier in this same chat.'},
+  {t:'"Delivery is free above Rs 1,000"',a:2,w:'A business policy for everyone: knowledge.'},
+  {t:'"Ravi always orders eggless" (remembered next month)',a:1,w:'About one customer, lasting across chats.'},
+  {t:'"Cupcakes are nut-free"',a:2,w:'A fact from the bakery’s documents.'},
+  {t:'"Sravani’s birthday is 12 March, she likes chocolate"',a:1,w:'A customer fact worth keeping for later.'},
+  {t:'"Make them eggless please" (right after asking for 2 cakes)',a:0,w:'Only makes sense with the previous message: conversation memory.'}],
+  ['Conversation','Customer','Knowledge'],'This chat, this customer, or the business’s documents.');
+
+/* T2 threads */
+(function(){
+  if(!$('th-send'))return;
+  var H={ravi:[],sravani:[]};
+  var SUG=[['ravi','Hi, I’m Ravi. I want 2 plum cakes.'],['sravani','Hello! I’m Sravani. Do you make cupcakes?'],['ravi','Make them eggless please.'],['sravani','What did I ask about?'],['ravi','What’s my name and what did I order?']];
+  function nameIn(ms){for(var i=ms.length-1;i>=0;i--){if(ms[i].r!=='user')continue;var m=ms[i].c.match(/(?:i'm|i’m|i am|my name is|this is)\s+([A-Za-z]+)/i);if(m)return m[1];}return null;}
+  function orderIn(ms){for(var i=ms.length-1;i>=0;i--){if(ms[i].r!=='user')continue;var m=ms[i].c.match(/(\d+)\s*(plum cakes?|chocolate cakes?|cupcakes?)/i);if(m)return m[1]+' '+m[2].toLowerCase();}return null;}
+  function about(ms){for(var i=0;i<ms.length;i++){if(ms[i].r==='user'&&/cupcake/i.test(ms[i].c))return 'cupcakes';}return null;}
+  function bot(prev,text){var low=text.toLowerCase(),nm=nameIn([{r:'user',c:text}]),od=orderIn([{r:'user',c:text}]);
+    if(/what.*name|who am i/.test(low)){var n=nameIn(prev),o=orderIn(prev);return (n?'You’re '+n+'.':'I don’t know your name yet.')+(/order/.test(low)?(o?' You asked for '+o+'.':' I don’t see an order in this chat.'):'');}
+    if(/what did i (ask|order)/.test(low)){var a=about(prev)||orderIn(prev);return a?'You asked about '+a+'.':'I don’t see that in this chat.';}
+    if(/eggless/.test(low)){var o2=orderIn(prev);return o2?'Done: '+o2+', eggless. Anything else?':'Which cake would you like eggless?';}
+    if(od)return (nm?'Hi '+nm+'! ':'')+'Noted: '+od+'. When would you like to pick them up?';
+    if(/cupcake/.test(low))return (nm?'Hi '+nm+'! ':'')+'Yes, cupcakes are Rs 80 each. How many would you like?';
+    return (nm?'Hi '+nm+'! ':'')+'How can I help you today?';}
+  function render(){['ravi','sravani'].forEach(function(t){$('th-'+t).innerHTML=H[t].length?H[t].map(function(m,i){return '<div class="r-'+(m.r==='user'?'user':'assistant')+(i>=H[t].length-2&&t===$('th-id').value?' fresh':'')+'"><strong>'+m.r+':</strong> '+esc(m.c)+'</div>';}).join(''):'<div class="note">(empty)</div>';});}
+  function send(t,text){text=(text||'').trim();if(!text)return;var prev=H[t].slice();var r=bot(prev,text);H[t].push({r:'user',c:text},{r:'assistant',c:r});$('th-id').value=t;render();
+    $('th-st').innerHTML='Sent with <code>thread_id="'+t+'"</code>. The checkpointer added '+prev.length+' earlier message'+(prev.length===1?'':'s')+' from this thread only. The other thread was not touched.';$('th-in').value='';}
+  pick($('th-sug'),SUG.map(function(s){return s[0]+': '+s[1];}),function(i){send(SUG[i][0],SUG[i][1]);});
+  $('th-send').addEventListener('click',function(){send($('th-id').value,$('th-in').value);});
+  $('th-in').addEventListener('keydown',function(e){if(e.key==='Enter')send($('th-id').value,$('th-in').value);});
+  $('th-reset').addEventListener('click',function(){H={ravi:[],sravani:[]};render();$('th-st').innerHTML='Try the suggested messages in order. Watch each thread keep its own memory.';$('th-sug').querySelectorAll('.opt').forEach(function(b){b.classList.remove('right');});});
+  $('th-reset').click();
+})();
+
+/* T3 cost slider */
+(function(){
+  if(!$('cs-n'))return;
+  function draw(){var n=+$('cs-n').value,base=150,per=25,all=base+n*per,rag=base+3*per+40;
+    $('cs-nv').textContent=n;$('cs-all').textContent=all.toLocaleString('en-IN');$('cs-rag').textContent=rag.toLocaleString('en-IN');$('cs-x').textContent=(all/rag).toFixed(1)+'×';
+    $('cs-st').innerHTML=n<=30?'With about '+n+' facts the difference is small. Keeping them in the prompt is fine.':'With '+n.toLocaleString('en-IN')+' facts, every call carries about '+(all/rag).toFixed(0)+'× more input, and an agent makes several calls per question. Search first.';}
+  $('cs-n').addEventListener('input',draw);draw();
+})();
+
+/* T4 embedding map */
+(function(){
+  if(!$('em-svg'))return;
+  var Q=[{l:'"Can you send it to my home?"',x:150,y:105},{l:'"Is it safe for my nut allergy?"',x:118,y:288},{l:'"Can I get my money back?"',x:360,y:115},{l:'"Can you print my photo on it?"',x:625,y:220},{l:'"What time can I collect it?"',x:520,y:240}];
+  var NS='http://www.w3.org/2000/svg';
+  function draw(qi){var q=Q[qi],svg=$('em-svg'),d=FACTS.map(function(f,i){return {i:i,d:Math.hypot(f.x-q.x,f.y-q.y)};}).sort(function(a,b){return a.d-b.d;}),top=d.slice(0,3).map(function(o){return o.i;});
+    var h='<text x="20" y="22" class="t-s">delivery &amp; payment</text><text x="560" y="22" class="t-s">custom cakes &amp; extras</text><text x="20" y="325" class="t-s">eggless, allergens, storage</text>';
+    top.forEach(function(i){var f=FACTS[i];h+='<line x1="'+q.x+'" y1="'+q.y+'" x2="'+f.x+'" y2="'+f.y+'" class="lna" stroke-dasharray="4 4"/>';});
+    FACTS.forEach(function(f,i){var on=top.indexOf(i)>=0;h+='<circle cx="'+f.x+'" cy="'+f.y+'" r="'+(on?9:6)+'" class="'+(on?'ba':'bw')+'"/><text x="'+(f.x+12)+'" y="'+(f.y+4)+'" class="t-s"'+(on?' style="font-weight:700;fill:var(--ink)"':'')+'>'+f.id+'</text>';});
+    h+='<rect x="'+(q.x-7)+'" y="'+(q.y-7)+'" width="14" height="14" class="bd" transform="rotate(45 '+q.x+' '+q.y+')"/>';
+    svg.innerHTML=h;
+    var mx=Math.hypot(760,330);
+    $('em-st').innerHTML='Question ◆ lands near: '+top.map(function(i,k){return '<strong>'+FACTS[i].id+'</strong> ('+(1-d[k].d/mx).toFixed(2)+')';}).join(', ')+'. None of these share many words with the question; they share <em>meaning</em>.';}
+  pick($('em-o'),Q.map(function(q){return q.l;}),draw)[0].click();
+})();
+
+/* T5 vector search */
+(function(){
+  if(!$('db-go'))return;
+  var SUG=['Can you send the cake to my house?','Is it ok for someone allergic to nuts?','Can I pay with GPay?','How long will the cake stay fresh?','Do you sell biryani?'];
+  function score(q,f){var low=q.toLowerCase(),s=0;f.k.forEach(function(k){if(low.indexOf(k)>=0)s+=1;});return s;}
+  function go(){var q=$('db-q').value.trim(),n=+$('db-n').value;if(!q)return;
+    var sc=FACTS.map(function(f,i){var s=score(q,f);return {f:f,s:s,j:(i*37%11)/100};}).sort(function(a,b){return (b.s-a.s)||(b.j-a.j);});
+    var best=sc[0].s;
+    $('db-body').innerHTML=sc.slice(0,n).map(function(o,i){var sim=o.s?Math.min(0.92,0.55+0.14*o.s-0.03*i):0.18+o.j;return '<tr'+(i===0&&o.s?' style="background:var(--accent-soft)"':'')+'><td>'+(i+1)+'</td><td>'+esc(o.f.t)+'</td><td>'+sim.toFixed(2)+'</td></tr>';}).join('');
+    $('db-st').innerHTML=best?'The closest fact is about <strong>'+sc[0].f.id+'</strong>. A vector database always returns the nearest '+n+', even if they are only loosely related, so the agent must still judge whether they answer the question. (Scores here are simulated for teaching.)':'<strong>Nothing is really close</strong>: all scores are low. The database still returns '+n+' results, so the rule "if it isn’t there, say you’ll check" is essential. (Scores simulated.)';}
+  pick($('db-sug'),SUG,function(i){$('db-q').value=SUG[i];go();});
+  $('db-go').addEventListener('click',go);$('db-q').addEventListener('keydown',function(e){if(e.key==='Enter')go();});go();
+})();
+
+/* T6 chunking */
+(function(){
+  if(!$('ch-s'))return;
+  var DOC='Sweet Crumbs policies. Regular orders need 24 hours’ notice. Photo cakes and custom designs need 48 hours’ notice. We deliver within 5 km of the bakery; delivery is Rs 50, free above Rs 1,000. We accept UPI and cash, and orders above Rs 1,000 need a 50% advance. Cancellation is free up to 12 hours before pickup. Plum cake contains nuts; cupcakes are nut-free. Keep cakes in the fridge and eat them within 3 days. Candles are free, and a message on the cake is free up to 20 letters.';
+  var KEY='Photo cakes and custom designs need 48 hours’ notice.';
+  function draw(){var size=+$('ch-s').value,ov=Math.round(size*0.15),pieces=[],st=0;
+    while(st<DOC.length){pieces.push(DOC.slice(st,st+size));st+=size-ov;}
+    var hit=-1,partial=-1;pieces.forEach(function(p,i){if(hit<0&&p.indexOf(KEY)>=0)hit=i;if(partial<0&&p.indexOf('Photo cakes')>=0)partial=i;});
+    $('ch-sv').textContent=size;
+    $('ch-out').innerHTML=pieces.map(function(p,i){var on=i===hit||(hit<0&&i===partial);return '<div class="result" style="margin:6px 0;white-space:normal;'+(on?'outline:3px solid var(--warm)':'opacity:.75')+'"><span class="note" style="color:inherit">chunk '+(i+1)+':</span> '+esc(p)+'</div>';}).join('');
+    var msg;
+    if(hit<0)msg='<strong>Too small.</strong> The photo-cake sentence is cut in half, so no chunk holds the full answer "48 hours". '+pieces.length+' chunks.';
+    else if(size>=420)msg='<strong>Too big.</strong> The right chunk contains the answer, but also delivery, payment and more. The model gets lots of unrelated text. '+pieces.length+' chunks.';
+    else msg='<strong>About right.</strong> One chunk holds the photo-cake rule with little extra. '+pieces.length+' chunks, with about 15% overlap between neighbours.';
+    $('ch-st').innerHTML=msg;}
+  $('ch-s').addEventListener('input',draw);draw();
+})();
+
+/* T7 RAG */
+(function(){
+  if(!$('rag-o'))return;
+  var Q=[
+    {q:'Do you deliver? My order is Rs 1,300.',f:'delivery',no:'Yes! We deliver anywhere in the city within 2 hours for just Rs 30.',yes:'Yes, we deliver within 5 km of the bakery, and since your order is above Rs 1,000, delivery is free.'},
+    {q:'Does the plum cake have nuts? My son is allergic.',f:'allergens',no:'No, our plum cake is completely nut-free, so it’s safe for your son.',yes:'Please be careful: our plum cake contains nuts and dried fruit. Our cupcakes and chocolate cake are nut-free.'},
+    {q:'Can I cancel tomorrow morning? Pickup is tomorrow evening.',f:'cancellation',no:'Sure, you can cancel any time before pickup for a full refund.',yes:'Cancellation is free up to 12 hours before pickup. If tomorrow morning is more than 12 hours before your pickup, yes; otherwise the advance isn’t refunded.'},
+    {q:'Do you sell biryani?',f:null,no:'Yes! Our chicken biryani is Rs 250 per plate.',yes:'We’re a bakery, so I don’t see biryani in our menu or policies. I’ll check with the owner if you’d like.'}];
+  var qi=0;
+  function draw(){var q=Q[qi],on=$('rag-on').checked,h='<div class="r-user fresh"><strong>Customer:</strong> '+esc(q.q)+'</div>';
+    if(on){var fs=q.f?[q.f]:[];var res=q.f?FACTS.filter(function(f){return f.id===q.f;}).concat(FACTS.filter(function(f){return f.id!==q.f;}).slice(0,2)):FACTS.slice(9,12);
+      h+='<div class="r-assistant fresh"><strong>1 · Retrieve:</strong> search_faq("'+esc(q.q)+'")</div><div class="r-system fresh"><strong>Tool returned:</strong><br>'+res.map(function(f){return '• '+esc(f.t);}).join('<br>')+'</div><div class="r-assistant fresh"><strong>2–3 · Augment + generate:</strong> '+esc(q.yes)+'</div>';
+      $('rag-st').innerHTML=q.f?'<strong>Grounded.</strong> The answer comes from the policy the tool returned.':'<strong>Honest.</strong> The tool returned nothing about biryani (only loosely related facts), so the agent says so instead of inventing.';}
+    else{h+='<div class="r-assistant fresh"><strong>Bot (no search):</strong> '+esc(q.no)+'</div>';$('rag-st').innerHTML='<strong style="color:var(--danger)">Made up.</strong> Without the policy in front of it, the model writes something that sounds right'+(q.f==='allergens'?', which here could be dangerous.':'.');}
+    $('rag-log').innerHTML=h;}
+  pick($('rag-o'),Q.map(function(q){return q.q;}),function(i){qi=i;draw();})[0].click();
+  $('rag-on').addEventListener('change',draw);
+})();
+
+/* T8 sign-off */
+if($('so-list'))sorter('so-list','so-st',[
+  {t:'"How much are 3 chocolate cakes?"',a:0,w:'A price: get_price.'},
+  {t:'"Are you open on Sunday evening?"',a:1,w:'Opening hours: is_open.'},
+  {t:'"Can I pay half now and half at pickup?"',a:2,w:'A payment policy: search_faq.'},
+  {t:'"I’m Ravi. Book 2 plum cakes for 24 Dec, eggless."',a:3,w:'A complete order: log_order.'},
+  {t:'"Actually, make it 3." (right after the order)',a:4,w:'Only makes sense with the earlier message: thread memory (then log_order again).'},
+  {t:'"Will the cake stay fresh till Monday?"',a:2,w:'Storage policy: search_faq.'}],
+  ['get_price','is_open','search_faq','log_order','memory'],'Each message type has a clear home. That’s a complete single agent.');
+})();
+
+</script>
+<script>
+window.VSCENES={
+ v1:[
+  {show:['ag'],cap:'Our agent can remember three different kinds of things.'},
+  {show:['ag','note','c1'],hl:['note'],cap:'A notepad for this conversation: what the customer said a minute ago.'},
+  {show:['ag','note','c1','reg','c2'],hl:['reg'],cap:'A customer register: facts about a customer that last for weeks, like "Ravi always orders eggless".'},
+  {show:['ag','note','c1','reg','c2','pol','c3'],hl:['pol'],cap:'And a policy file: the business’s rules and FAQs, the same for every customer.'},
+  {show:['ag','note','c1','reg','c2','pol','c3'],hl:['ag'],cap:'Today we build the notepad (threads) and the policy file (RAG). Each needs its own method.'}],
+ v2:[
+  {show:['ag','rh','sh'],cap:'The checkpointer keeps one shelf per thread_id: one for Ravi, one for Sravani.'},
+  {show:['ag','rh','sh','r1','r2'],cap:'Ravi asks for 2 plum cakes. That goes on Ravi’s shelf.'},
+  {show:['ag','rh','sh','r1','r2','s1','s2'],cap:'Sravani asks about cupcakes at the same time. Her messages go on her own shelf.'},
+  {show:['ag','rh','sh','r1','r2','s1','s2','r3','link'],hl:['r3'],cap:'Ravi says "make them eggless". Them? The agent loads only Ravi’s thread…'},
+  {show:['ag','rh','sh','r1','r2','s1','s2','r3','r4','link'],hl:['r4'],cap:'…and knows he means the plum cakes. Sravani’s chat is never mixed in.'}],
+ v3:[
+  {show:['l1','bigr'],mv:{'bigr>rect':'scaleX(1)'},cap:'Option 1: paste all 300 facts into the prompt. You pay for all of them on every single call.'},
+  {show:['l1','bigr','cost1'],mv:{'bigr>rect':'scaleX(1)'},cap:'Slow, costly, and the one fact the customer needs is buried among the rest.'},
+  {show:['l1','bigr','cost1','l2','q','a1','s'],mv:{'bigr>rect':'scaleX(1)'},hl:['s'],cap:'Option 2: search first.'},
+  {show:['l1','bigr','cost1','l2','q','a1','s','a2','small','cost2'],mv:{'bigr>rect':'scaleX(1)'},hl:['small'],cap:'Send only the 3 relevant facts. Fast, cheap and focused. That’s the idea behind RAG.'}],
+ v4:[
+  {show:['map','t1','t2','t3','t4'],cap:'Here are four bakery sentences.'},
+  {show:['map','t1','t2','t3','t4','nums'],cap:'An embedding model turns each one into a long list of numbers.'},
+  {show:['map','t1','t2','t3','t4','t1p','t2p','t3p','t4p'],cap:'Think of those numbers as a position on a map of meaning. The two delivery sentences land close together…'},
+  {show:['map','t1','t2','t3','t4','t1p','t2p','t3p','t4p'],hl:['t3','t4'],cap:'…and the eggless and nuts sentences land in another corner.'},
+  {show:['map','t1p','t2p','t3p','t4p','q'],cap:'Now a customer asks "can you send it to my home?" It uses none of the same words…'},
+  {show:['map','t1p','t2p','t3p','t4p','q','near'],cap:'…but its meaning lands right next to the delivery sentences. Close on the map = close in meaning.'}],
+ v5:[
+  {show:['docs'],cap:'We have 12 short facts about the bakery.'},
+  {show:['docs','add','db'],hl:['db'],cap:'.add stores each text in ChromaDB together with its embedding. Chroma makes the embeddings for us.'},
+  {show:['docs','add','db','q'],hl:['q'],cap:'A customer asks a question in their own words. .query embeds it too…'},
+  {show:['docs','add','db','q','res'],hl:['res'],cap:'…and returns the 3 closest facts, best first. Delivery comes out on top.'}],
+ v6:[
+  {show:['doc'],cap:'The bakery’s policies arrive as one long document.'},
+  {show:['doc','cut1','cut2','cut3'],cap:'We cut it where the topic changes.'},
+  {show:['doc','cut1','cut2','cut3','k1','k2','k3','k4'],cap:'Now each chunk holds one idea: notice, photo cakes, delivery, payment.'},
+  {show:['k1','k2','k3','k4','db'],hl:['k2'],cap:'Each chunk is stored separately, so a photo-cake question finds just the photo-cake chunk.'}],
+ v7:[
+  {show:['q'],cap:'A customer asks about the delivery charge.'},
+  {show:['q','a1','r'],hl:['r'],cap:'Step 1, Retrieve: the agent calls search_faq and gets the relevant policy.'},
+  {show:['q','a1','r','a2','au'],hl:['au'],cap:'Step 2, Augment: the policy is added to what the model reads.'},
+  {show:['q','a1','r','a2','au','a3','g'],hl:['g'],cap:'Step 3, Generate: the model answers from that policy only.'},
+  {show:['q','a1','r','a2','au','a3','g','ans'],hl:['ans'],cap:'A correct answer, grounded in the real document.'},
+  {show:['q','a1','r','a2','au','a3','g','ans','nf'],hl:['nf'],cap:'And if the documents don’t have it, the agent says it will check. No guessing. That’s RAG.'}],
+ v8:[
+  {show:['core'],cap:'Our single agent, from Days 3 to 5.'},
+  {show:['core','b'],hl:['b'],cap:'A brain with clear instructions.'},
+  {show:['core','b','t'],hl:['t'],cap:'Tools to check prices and hours and to save orders.'},
+  {show:['core','b','t','m'],hl:['m'],cap:'Memory for each customer’s conversation.'},
+  {show:['core','b','t','m','k','l'],hl:['k'],cap:'Knowledge it can search instead of guessing.'},
+  {show:['core','b','t','m','k','l','ok'],hl:['core'],cap:'Tested and complete. Next: a team of agents, each with its own job.'}]
+};
+
+/* ---------- Animated videos ---------- */
+(function(){
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var S=window.VSCENES;
+function fmt(s){s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+('0'+s%60).slice(-2);}
+document.querySelectorAll('.vid').forEach(function(box){
+  var id=box.getAttribute('data-vid'),sc=S[id];if(!sc)return;
+  var svg=box.querySelector('svg'),cap=box.querySelector('.vid-cap'),btn=box.querySelector('.vid-play'),prog=box.querySelector('.vid-prog'),bar=prog.firstElementChild,tm=box.querySelector('.vid-time'),voice=box.querySelector('.vid-voice');
+  var dur=sc.map(function(s){return Math.max(3.2,s.cap.length/16);}),total=dur.reduce(function(a,b){return a+b;},0);
+  var starts=[],acc=0;dur.forEach(function(d){starts.push(acc);acc+=d;});
+  var els=svg.querySelectorAll('[id^="'+id+'-"]'),orig={};
+  els.forEach(function(e){if(e.tagName==='text')orig[e.id]=e.textContent;});
+  function el(k){var p=k.split('>');var e=svg.querySelector('#'+id+'-'+p[0]);return p[1]&&e?e.querySelector(p[1]):e;}
+  var cur=-1,t=0,playing=false,last=0,raf=null;
+  function apply(i){
+    if(i===cur)return;cur=i;var s=sc[i];
+    svg.querySelectorAll('.ve').forEach(function(e){var k=e.id.slice(id.length+1);e.classList.toggle('show',s.show.indexOf(k)>=0);});
+    svg.querySelectorAll('.on').forEach(function(e){e.classList.remove('on');});
+    (s.hl||[]).forEach(function(k){var e=el(k);if(!e)return;var r=e.tagName==='rect'?e:e.querySelector('rect');if(r)r.classList.add('on');});
+    svg.querySelectorAll('[data-t0]').forEach(function(e){e.style.transform=e.getAttribute('data-t0');});
+    Object.keys(orig).forEach(function(k){var e=svg.querySelector('#'+k);if(e)e.textContent=orig[k];});
+    for(var j=0;j<=i;j++){var m=sc[j].mv||{},x=sc[j].txt||{};
+      Object.keys(m).forEach(function(k){var e=el(k);if(e)e.style.transform=m[k];});
+      Object.keys(x).forEach(function(k){var e=el(k);if(e)e.textContent=x[k];});}
+    cap.textContent=s.cap;
+    if(voice.checked&&playing&&window.speechSynthesis){try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(s.cap);u.lang='en-IN';u.rate=1.02;speechSynthesis.speak(u);}catch(e){}}
+  }
+  function idx(tt){for(var i=starts.length-1;i>=0;i--){if(tt>=starts[i])return i;}return 0;}
+  function draw(){bar.style.width=(t/total*100)+'%';tm.textContent=fmt(t)+' / '+fmt(total);}
+  function frame(now){if(!playing)return;t+=(now-last)/1000;last=now;
+    if(t>=total){t=total;draw();pause();btn.textContent='Replay';return;}
+    apply(idx(t));draw();raf=requestAnimationFrame(frame);}
+  function play(){if(t>=total){t=0;cur=-1;}playing=true;btn.textContent='Pause';last=performance.now();apply(idx(t));raf=requestAnimationFrame(frame);}
+  function pause(){playing=false;if(raf)cancelAnimationFrame(raf);if(btn.textContent==='Pause')btn.textContent='Play';try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
+  btn.addEventListener('click',function(){playing?pause():play();});
+  prog.addEventListener('click',function(ev){var r=prog.getBoundingClientRect();t=Math.min(total-0.01,Math.max(0,(ev.clientX-r.left)/r.width*total));cur=-1;apply(idx(t));draw();if(!playing)btn.textContent='Play';});
+  voice.addEventListener('change',function(){if(!voice.checked){try{speechSynthesis.cancel();}catch(e){}}});
+  draw();
+});
+})();
+
+/* ---------- MCQ quiz ---------- */
+(function(){
+  var all=document.querySelectorAll('.mcq'),right=0;
+  var sn=document.getElementById('sc-n'),sb=document.getElementById('sc-bar');
+  document.getElementById('sc-t').textContent=all.length;
+  function upd(){sn.textContent=right;sb.style.width=(right/all.length*100)+'%';}
+  all.forEach(function(q){
+    var ans=q.getAttribute('data-ans'),bs=q.querySelectorAll('.choices button'),why=q.querySelector('.why'),scored=false,base=why.innerHTML;
+    bs.forEach(function(b){b.addEventListener('click',function(){
+      var k=b.getAttribute('data-k'),ok=k===ans;
+      bs.forEach(function(x){x.disabled=true;x.classList.toggle('right',x.getAttribute('data-k')===ans);});
+      if(!ok)b.classList.add('wrong');
+      why.innerHTML=(ok?'<strong>Correct.</strong> ':'<strong>Not quite.</strong> ')+base;
+      q.classList.add('done');
+      if(ok&&!scored){scored=true;right++;upd();}
+    });});
+    q.querySelector('.retry').addEventListener('click',function(){bs.forEach(function(x){x.disabled=false;x.classList.remove('right','wrong');});q.classList.remove('done');});
+  });
+  upd();
+})();
+
+</script>
+<script>
+// Tiny Python highlighter: comments, strings, keywords, numbers.
+(function(){
+  var KW=/\b(import|from|def|return|class|if|else|elif|for|in|while|try|except|as|with|None|True|False|print|lambda|is|not|and|or|raise|self)\b/;
+  document.querySelectorAll('pre code.py').forEach(function(el){
+    var src=el.textContent, out='', re=/(#[^\n]*)|("""[\s\S]*?"""|f?"[^"\n]*"|f?'[^'\n]*')|\b(import|from|def|return|class|if|else|elif|for|in|while|try|except|as|with|None|True|False|print|lambda|is|not|and|or|raise|self)\b|\b(\d+(?:\.\d+)?)\b/g, last=0, m;
+    function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    while((m=re.exec(src))){
+      out+=esc(src.slice(last,m.index));
+      var cls=m[1]?'c':m[2]?'s':m[3]?'k':'n';
+      out+='<span class="'+cls+'">'+esc(m[0])+'</span>';
+      last=re.lastIndex;
+    }
+    out+=esc(src.slice(last));
+    el.innerHTML=out;
+  });
+})();
+</script>
+</body>
+</html>
